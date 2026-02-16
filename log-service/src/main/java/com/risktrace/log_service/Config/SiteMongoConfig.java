@@ -1,0 +1,48 @@
+package com.risktrace.log_service.Config;
+
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.mongodb.MongoDatabaseFactory;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory;
+import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
+
+/**
+ * Secondary MongoTemplate that points to sitedb.
+ * SiteRefRepository uses this template to read the `sites` collection
+ * for apiKey validation without an inter-service HTTP call.
+ */
+@Configuration
+@EnableMongoRepositories(basePackages = "com.risktrace.log_service.Repository", includeFilters = @org.springframework.context.annotation.ComponentScan.Filter(type = org.springframework.context.annotation.FilterType.ASSIGNABLE_TYPE, classes = com.risktrace.log_service.Repository.SiteRefRepository.class), mongoTemplateRef = "siteMongoTemplate")
+public class SiteMongoConfig {
+
+    @Value("${app.sitedb.uri:mongodb://localhost:27017/sitedb}")
+    private String siteDbUri;
+
+    @Bean(name = "siteMongoClient")
+    public MongoClient siteMongoClient() {
+        return MongoClients.create(siteDbUri);
+    }
+
+    @Bean(name = "siteMongoDatabaseFactory")
+    public MongoDatabaseFactory siteMongoDatabaseFactory() {
+        return new SimpleMongoClientDatabaseFactory(siteMongoClient(), extractDbName(siteDbUri));
+    }
+
+    @Bean(name = "siteMongoTemplate")
+    public MongoTemplate siteMongoTemplate() {
+        return new MongoTemplate(siteMongoDatabaseFactory());
+    }
+
+    private String extractDbName(String uri) {
+        // Extract DB name from URI like mongodb://host:port/dbname
+        String path = uri.substring(uri.lastIndexOf('/') + 1);
+        // Handle query params
+        if (path.contains("?"))
+            path = path.substring(0, path.indexOf('?'));
+        return path.isEmpty() ? "sitedb" : path;
+    }
+}

@@ -28,29 +28,39 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
 
     @Override
     public GatewayFilter apply(Config config) {
-        return ((exchange, chain) -> {
+        return (exchange, chain) -> {
+
             if (validator.isSecured.test(exchange.getRequest())) {
-                // Check if header contains token
+
+                // 1️⃣ Check Authorization header exists
                 if (!exchange.getRequest().getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
                     return onError(exchange, "Missing Authorization Header", HttpStatus.UNAUTHORIZED);
                 }
 
-                String authHeader = exchange.getRequest().getHeaders().get(HttpHeaders.AUTHORIZATION).get(0);
-                if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                    authHeader = authHeader.substring(7);
+                String authHeader = exchange.getRequest()
+                        .getHeaders()
+                        .getFirst(HttpHeaders.AUTHORIZATION);
+
+                if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                    return onError(exchange, "Invalid Authorization Header", HttpStatus.UNAUTHORIZED);
                 }
 
+                // 2️⃣ Extract token
+                String token = authHeader.substring(7);
+
                 try {
-                    if (!jwtUtils.isTokenValid(authHeader)) {
+                    // 3️⃣ Validate token at gateway
+                    if (!jwtUtils.isTokenValid(token)) {
                         return onError(exchange, "Invalid Token", HttpStatus.UNAUTHORIZED);
                     }
 
-                    // Extract user information
-                    String email = jwtUtils.extractEmail(authHeader);
-                    String userId = jwtUtils.extractUserId(authHeader);
+                    // 4️⃣ Extract user info
+                    String email = jwtUtils.extractEmail(token);
+                    String userId = jwtUtils.extractUserId(token);
 
-                    // Forward information in headers
+                    // ⭐ IMPORTANT: forward Authorization header to downstream service
                     ServerHttpRequest request = exchange.getRequest().mutate()
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                             .header("X-User-Email", email)
                             .header("X-User-Id", userId)
                             .build();
@@ -61,8 +71,9 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
                     return onError(exchange, "Token Validation Failed", HttpStatus.UNAUTHORIZED);
                 }
             }
+
             return chain.filter(exchange);
-        });
+        };
     }
 
     private Mono<Void> onError(ServerWebExchange exchange, String err, HttpStatus httpStatus) {

@@ -1,5 +1,6 @@
 package com.risktrace.user_service.Security;
 
+import com.risktrace.user_service.Repository.BlacklistedTokenRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,6 +23,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtils jwtUtils;
     private final UserDetailsService userDetailsService;
+    private final BlacklistedTokenRepository blacklistedTokenRepository;
 
     @Override
     protected void doFilterInternal(
@@ -45,6 +47,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         jwt = authHeader.substring(7);
+
+        if (blacklistedTokenRepository.existsByToken(jwt)) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\": \"Token has been invalidated. Please login again.\"}");
+            return;
+        }
+
+
         userEmail = jwtUtils.extractEmail(jwt);
 
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {

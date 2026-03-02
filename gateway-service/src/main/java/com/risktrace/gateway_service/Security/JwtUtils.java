@@ -4,6 +4,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -14,7 +15,7 @@ import java.util.function.Function;
 @Component
 public class JwtUtils {
 
-    @Value("${JWT_SECRET:WnZrNHAzczV2OGV4cm9pYndxbm16bHBrZGpmaHNoYWpza2RscTU0ODk3MTIzem1uYmN2eA==}")
+    @Value("${JWT_SECRET:mySuperSecretKeyForJWTThatIsLongEnough123!}")
     private String secretKey;
 
     public String extractEmail(String token) {
@@ -57,5 +58,9 @@ public class JwtUtils {
     private SecretKey getSignInKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
+    }
+    @PostConstruct
+    public void printKey() {
+        System.out.println("JWT SECRET = " + secretKey);
     }
 }

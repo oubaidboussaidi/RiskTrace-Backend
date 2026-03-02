@@ -1,8 +1,6 @@
 package com.risktrace.user_service.Controller;
 
-import com.risktrace.user_service.DTO.UpdateProfileRequest;
-import com.risktrace.user_service.DTO.UpdateUserRequest;
-import com.risktrace.user_service.DTO.UserResponse;
+import com.risktrace.user_service.DTO.*;
 import com.risktrace.user_service.Service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -52,9 +51,26 @@ public class UserController {
         return ResponseEntity.ok(userService.getProfile(authentication.getName()));
     }
 
-    @PutMapping("/profile")
-    public ResponseEntity<UserResponse> updateProfile(Authentication authentication,
-            @RequestBody UpdateProfileRequest request) {
-        return ResponseEntity.ok(userService.updateProfile(authentication.getName(), request));
+//    @PutMapping("/profile")
+//    public ResponseEntity<UserResponse> updateProfile(Authentication authentication,
+//            @RequestBody UpdateProfileRequest request) {
+//        return ResponseEntity.ok(userService.updateProfile(authentication.getName(), request));
+//    }
+
+    // Update full name (no password required)
+    @PutMapping("/fullname")
+    public ResponseEntity<UserResponse> updateFullName(
+            Authentication authentication,
+            @RequestBody UpdateFullNameRequest request) {
+        return ResponseEntity.ok(userService.updateFullName(authentication.getName(), request));
+    }
+
+    // Change password (requires current password)
+    @PostMapping("/change-password")
+    public ResponseEntity<Map<String, String>> changePassword(
+            Authentication authentication,
+            @RequestBody ChangePasswordRequest request) {
+        userService.changePassword(authentication.getName(), request);
+        return ResponseEntity.ok(Map.of("message", "Password changed successfully"));
     }
 }

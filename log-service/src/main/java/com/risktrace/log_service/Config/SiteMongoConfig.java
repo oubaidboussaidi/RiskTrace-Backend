@@ -2,6 +2,7 @@ package com.risktrace.log_service.Config;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import com.risktrace.log_service.Repository.site.SiteRefRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,7 +17,12 @@ import org.springframework.data.mongodb.repository.config.EnableMongoRepositorie
  * for apiKey validation without an inter-service HTTP call.
  */
 @Configuration
-@EnableMongoRepositories(basePackages = "com.risktrace.log_service.Repository", includeFilters = @org.springframework.context.annotation.ComponentScan.Filter(type = org.springframework.context.annotation.FilterType.ASSIGNABLE_TYPE, classes = com.risktrace.log_service.Repository.SiteRefRepository.class), mongoTemplateRef = "siteMongoTemplate")
+//@EnableMongoRepositories(basePackages = "com.risktrace.log_service.Repository", includeFilters = @org.springframework.context.annotation.ComponentScan.Filter(type = org.springframework.context.annotation.FilterType.ASSIGNABLE_TYPE, classes = SiteRefRepository.class), mongoTemplateRef = "siteMongoTemplate")
+
+@EnableMongoRepositories(
+        basePackages = "com.risktrace.log_service.Repository.site",
+        mongoTemplateRef = "siteMongoTemplate"
+)
 public class SiteMongoConfig {
 
     @Value("${app.sitedb.uri:mongodb://localhost:27017/sitedb}")

@@ -1,4 +1,4 @@
-package com.risktrace.log_service.Repository;
+package com.risktrace.log_service.Repository.log;
 
 import com.risktrace.log_service.Model.Log;
 import org.springframework.data.mongodb.repository.MongoRepository;

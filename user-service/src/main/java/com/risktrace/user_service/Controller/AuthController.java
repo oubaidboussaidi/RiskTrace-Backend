@@ -2,6 +2,7 @@ package com.risktrace.user_service.Controller;
 
 import com.risktrace.user_service.DTO.*;
 import com.risktrace.user_service.Service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -55,5 +56,11 @@ public class AuthController {
         userService.resetPassword(request);
         return ResponseEntity
                 .ok(Map.of("message", "Password reset successfully. You can now log in with your new password."));
+    }
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        userService.logout(authHeader);
+        return ResponseEntity.ok(Map.of("message", "Successfully logged out"));
     }
 }

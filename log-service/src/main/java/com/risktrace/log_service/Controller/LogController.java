@@ -2,8 +2,8 @@ package com.risktrace.log_service.Controller;
 
 import com.risktrace.log_service.Model.Log;
 import com.risktrace.log_service.Model.SiteRef;
-import com.risktrace.log_service.Repository.LogRepository;
-import com.risktrace.log_service.Repository.SiteRefRepository;
+import com.risktrace.log_service.Repository.log.LogRepository;
+import com.risktrace.log_service.Repository.site.SiteRefRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;

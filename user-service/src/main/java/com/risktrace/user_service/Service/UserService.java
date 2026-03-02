@@ -5,9 +5,11 @@ import com.risktrace.user_service.Enums.Role;
 import com.risktrace.user_service.Exception.AccountNotVerifiedException;
 import com.risktrace.user_service.Exception.EmailUnverifiedPendingException;
 import com.risktrace.user_service.Exception.InvalidTokenException;
+import com.risktrace.user_service.Model.BlacklistedToken;
 import com.risktrace.user_service.Model.PasswordResetToken;
 import com.risktrace.user_service.Model.User;
 import com.risktrace.user_service.Model.VerificationToken;
+import com.risktrace.user_service.Repository.BlacklistedTokenRepository;
 import com.risktrace.user_service.Repository.PasswordResetTokenRepository;
 import com.risktrace.user_service.Repository.UserRepository;
 import com.risktrace.user_service.Repository.VerificationTokenRepository;
@@ -41,6 +43,7 @@ public class UserService {
     private final VerificationTokenRepository verificationTokenRepo;
     private final PasswordResetTokenRepository passwordResetTokenRepo;
     private final EmailService emailService;
+    private final BlacklistedTokenRepository blacklistedTokenRepository;
 
     @Value("${app.verification-token-expiry-hours:24}")
     private long verificationTokenExpiryHours;
@@ -243,18 +246,59 @@ public class UserService {
         return mapToUserResponse(user);
     }
 
-    public UserResponse updateProfile(String email, UpdateProfileRequest request) {
+//    public UserResponse updateProfile(String email, UpdateProfileRequest request) {
+//        var user = repository.findByEmail(email)
+//                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+//
+//        if (request.getFullName() != null && !request.getFullName().isBlank()) {
+//            user.setFullName(request.getFullName());
+//        }
+//        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+//            user.setPassword(passwordEncoder.encode(request.getPassword()));
+//        }
+//        user.setUpdatedAt(Instant.now());
+//        return mapToUserResponse(repository.save(user));
+//    }
+
+    @Transactional
+    public UserResponse updateFullName(String email, UpdateFullNameRequest request) {
         var user = repository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         if (request.getFullName() != null && !request.getFullName().isBlank()) {
             user.setFullName(request.getFullName());
+            user.setUpdatedAt(Instant.now());
+            repository.save(user);
+
         }
-        if (request.getPassword() != null && !request.getPassword().isBlank()) {
-            user.setPassword(passwordEncoder.encode(request.getPassword()));
+
+        return mapToUserResponse(user);
+    }
+
+    @Transactional
+    public void changePassword(String email, ChangePasswordRequest request) {
+        var user = repository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        // Verify current password
+        if (request.getCurrentPassword() == null || request.getCurrentPassword().isBlank()) {
+            throw new IllegalArgumentException("Current password is required");
         }
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("Current password is incorrect");
+        }
+
+        // Validate new password strength (optional)
+        if (request.getNewPassword() == null || request.getNewPassword().length() < 6) {
+            throw new IllegalArgumentException("New password must be at least 6 characters");
+        }
+
+        // Update password
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         user.setUpdatedAt(Instant.now());
-        return mapToUserResponse(repository.save(user));
+        repository.save(user);
+
+        log.info("Password changed for user: {}", email);
     }
 
     // =========================================================================
@@ -295,5 +339,24 @@ public class UserService {
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
+    }
+    @Transactional
+    public void logout(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new IllegalArgumentException("Invalid authorization header");
+        }
+        String token = authHeader.substring(7);
+
+        // Calculate when this token would expire (based on your JWT expiration)
+        Instant expiry = Instant.now().plusSeconds(86400); // 24 hours from now
+
+        var blacklistedToken = BlacklistedToken.builder()
+                .token(token)
+                .expiryDate(expiry)
+                .blacklistedAt(Instant.now())
+                .build();
+
+        blacklistedTokenRepository.save(blacklistedToken);
+        log.info("Token blacklisted for logout");
     }
 }

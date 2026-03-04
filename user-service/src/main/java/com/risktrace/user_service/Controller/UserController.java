@@ -51,14 +51,16 @@ public class UserController {
         return ResponseEntity.ok(userService.getProfile(authentication.getName()));
     }
 
-//    @PutMapping("/profile")
-//    public ResponseEntity<UserResponse> updateProfile(Authentication authentication,
-//            @RequestBody UpdateProfileRequest request) {
-//        return ResponseEntity.ok(userService.updateProfile(authentication.getName(), request));
-//    }
+    // @PutMapping("/profile")
+    // public ResponseEntity<UserResponse> updateProfile(Authentication
+    // authentication,
+    // @RequestBody UpdateProfileRequest request) {
+    // return ResponseEntity.ok(userService.updateProfile(authentication.getName(),
+    // request));
+    // }
 
     // Update full name (no password required)
-    @PutMapping("/fullname")
+    @PutMapping("/profile/fullname")
     public ResponseEntity<UserResponse> updateFullName(
             Authentication authentication,
             @RequestBody UpdateFullNameRequest request) {
@@ -66,7 +68,7 @@ public class UserController {
     }
 
     // Change password (requires current password)
-    @PostMapping("/change-password")
+    @PostMapping("/profile/change-password")
     public ResponseEntity<Map<String, String>> changePassword(
             Authentication authentication,
             @RequestBody ChangePasswordRequest request) {

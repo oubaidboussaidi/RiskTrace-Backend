@@ -47,7 +47,7 @@ public class JwtUtils {
                 .claims(extraClaims)
                 .subject(userDetails.getUsername())
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24)) // 24 hours
+                .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 15)) // 15 minutes
                 .signWith(getSignInKey(), Jwts.SIG.HS256)
                 .compact();
     }
@@ -77,6 +77,7 @@ public class JwtUtils {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
+
     @PostConstruct
     public void printKey() {
         System.out.println("JWT SECRET = " + secretKey);

@@ -7,10 +7,12 @@ import com.risktrace.user_service.Exception.EmailUnverifiedPendingException;
 import com.risktrace.user_service.Exception.InvalidTokenException;
 import com.risktrace.user_service.Model.BlacklistedToken;
 import com.risktrace.user_service.Model.PasswordResetToken;
+import com.risktrace.user_service.Model.RefreshToken;
 import com.risktrace.user_service.Model.User;
 import com.risktrace.user_service.Model.VerificationToken;
 import com.risktrace.user_service.Repository.BlacklistedTokenRepository;
 import com.risktrace.user_service.Repository.PasswordResetTokenRepository;
+import com.risktrace.user_service.Repository.RefreshTokenRepository;
 import com.risktrace.user_service.Repository.UserRepository;
 import com.risktrace.user_service.Repository.VerificationTokenRepository;
 import com.risktrace.user_service.Security.JwtUtils;
@@ -27,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -44,6 +47,7 @@ public class UserService {
     private final PasswordResetTokenRepository passwordResetTokenRepo;
     private final EmailService emailService;
     private final BlacklistedTokenRepository blacklistedTokenRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     @Value("${app.verification-token-expiry-hours:24}")
     private long verificationTokenExpiryHours;
@@ -109,9 +113,41 @@ public class UserService {
         }
 
         var jwtToken = jwtUtils.generateToken(user);
+        var refreshToken = createRefreshToken(user.getId());
 
         return AuthResponse.builder()
                 .token(jwtToken)
+                .refreshToken(refreshToken)
+                .role(user.getRole() != null ? user.getRole().name() : Role.ANALYST.name())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .id(user.getId())
+                .build();
+    }
+
+    @Transactional
+    public AuthResponse refresh(String refreshTokenStr) {
+        // Find by hashed token
+        String hashedToken = hashToken(refreshTokenStr);
+        RefreshToken refreshToken = refreshTokenRepository.findByToken(hashedToken)
+                .orElseThrow(() -> new InvalidTokenException("Invalid refresh token"));
+
+        if (refreshToken.getExpiryDate().before(new Date())) {
+            refreshTokenRepository.delete(refreshToken);
+            throw new InvalidTokenException("Refresh token expired");
+        }
+
+        User user = repository.findById(refreshToken.getUserId())
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        // Rotation: Delete old, create new
+        refreshTokenRepository.delete(refreshToken);
+        String newRefreshTokenStr = createRefreshToken(user.getId());
+        String newAccessToken = jwtUtils.generateToken(user);
+
+        return AuthResponse.builder()
+                .token(newAccessToken)
+                .refreshToken(newRefreshTokenStr)
                 .role(user.getRole() != null ? user.getRole().name() : Role.ANALYST.name())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
@@ -246,19 +282,20 @@ public class UserService {
         return mapToUserResponse(user);
     }
 
-//    public UserResponse updateProfile(String email, UpdateProfileRequest request) {
-//        var user = repository.findByEmail(email)
-//                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-//
-//        if (request.getFullName() != null && !request.getFullName().isBlank()) {
-//            user.setFullName(request.getFullName());
-//        }
-//        if (request.getPassword() != null && !request.getPassword().isBlank()) {
-//            user.setPassword(passwordEncoder.encode(request.getPassword()));
-//        }
-//        user.setUpdatedAt(Instant.now());
-//        return mapToUserResponse(repository.save(user));
-//    }
+    // public UserResponse updateProfile(String email, UpdateProfileRequest request)
+    // {
+    // var user = repository.findByEmail(email)
+    // .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+    //
+    // if (request.getFullName() != null && !request.getFullName().isBlank()) {
+    // user.setFullName(request.getFullName());
+    // }
+    // if (request.getPassword() != null && !request.getPassword().isBlank()) {
+    // user.setPassword(passwordEncoder.encode(request.getPassword()));
+    // }
+    // user.setUpdatedAt(Instant.now());
+    // return mapToUserResponse(repository.save(user));
+    // }
 
     @Transactional
     public UserResponse updateFullName(String email, UpdateFullNameRequest request) {
@@ -340,23 +377,49 @@ public class UserService {
                 .updatedAt(user.getUpdatedAt())
                 .build();
     }
+
     @Transactional
-    public void logout(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new IllegalArgumentException("Invalid authorization header");
+    public void logout(String refreshTokenStr) {
+        if (refreshTokenStr != null) {
+            String hashedToken = hashToken(refreshTokenStr);
+            refreshTokenRepository.findByToken(hashedToken).ifPresent(refreshTokenRepository::delete);
         }
-        String token = authHeader.substring(7);
+        log.info("Successfully logged out");
+    }
 
-        // Calculate when this token would expire (based on your JWT expiration)
-        Instant expiry = Instant.now().plusSeconds(86400); // 24 hours from now
+    private String createRefreshToken(String userId) {
+        String token = UUID.randomUUID().toString();
+        String hashedToken = hashToken(token);
 
-        var blacklistedToken = BlacklistedToken.builder()
-                .token(token)
-                .expiryDate(expiry)
-                .blacklistedAt(Instant.now())
+        var refreshToken = RefreshToken.builder()
+                .token(hashedToken)
+                .userId(userId)
+                .expiryDate(Date.from(Instant.now().plus(7, ChronoUnit.DAYS)))
+                .createdAt(Instant.now())
                 .build();
 
-        blacklistedTokenRepository.save(blacklistedToken);
-        log.info("Token blacklisted for logout");
+        refreshTokenRepository.save(refreshToken);
+        return token;
+    }
+
+    private String hashToken(String token) {
+        // Using a simple SHA-256 or similar would be better than PasswordEncoder
+        // because we need exact matches, not bcrypt's salted matches.
+        // Actually, for tokens where we look them up by ID/Value, we need a
+        // deterministic hash.
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] encodedHash = digest.digest(token.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : encodedHash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1)
+                    hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new RuntimeException("Error hashing token", e);
+        }
     }
 }

@@ -27,10 +27,18 @@ public class SiteService {
                 .collect(Collectors.toList());
     }
 
+    public List<SiteResponse> getSitesByOrganization(String organizationId) {
+        return siteRepository.findByOrganizationId(organizationId)
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
     public SiteResponse createSite(SiteRequest request, String userId) {
 
         Site site = new Site();
         site.setUserId(userId);
+        site.setOrganizationId(request.getOrganizationId());
         site.setSiteName(request.getSiteName());
         site.setDomain(request.getDomain());
         site.setApiKey(generateApiKey());
@@ -62,9 +70,9 @@ public class SiteService {
                 site.getDomain(),
                 site.getApiKey(),
                 site.getStatus(),
+                site.getOrganizationId(),
                 site.getCreatedAt(),
-                site.getLastActive()
-        );
+                site.getLastActive());
     }
 
     private String generateApiKey() {

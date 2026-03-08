@@ -10,4 +10,7 @@ public class SiteRequest {
 
     @NotBlank(message = "domain is required")
     private String domain;
+
+    @NotBlank(message = "organizationId is required")
+    private String organizationId;
 }

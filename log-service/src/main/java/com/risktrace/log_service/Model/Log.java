@@ -17,6 +17,7 @@ public class Log {
 
     // ── Resolved by backend from apiKey lookup ──
     private String siteId; // resolved from apiKey → site._id
+    private String organizationId; // resolved from apiKey → site → org
 
     // ── Sent by tracker script ──
     private String apiKey; // used for lookup, NOT stored long-term (cleared after resolution)
@@ -39,4 +40,7 @@ public class Log {
     // ── ML fields (future) ──
     private Double anomalyScore;
     private Boolean isAnomaly;
+
+    // ── Manual Feedback ──
+    private Boolean isSuspicious;
 }

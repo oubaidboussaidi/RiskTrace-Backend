@@ -4,17 +4,22 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 
 public enum Role {
     ADMIN,
-    ANALYST,
-    USER; // Required to support existing database records and prevent 'No enum constant' crashes
+    USER; // Required to support existing database records and prevent 'No enum constant'
+          // crashes
 
     @JsonCreator
     public static Role fromString(String value) {
         if (value == null)
-            return ANALYST;
+            return USER;
         try {
-            return Role.valueOf(value.toUpperCase());
+            String upper = value.toUpperCase();
+            if (upper.equals("PLATFORM_ADMIN"))
+                return ADMIN;
+            if (upper.equals("ANALYST") || upper.equals("VIEWER"))
+                return USER;
+            return Role.valueOf(upper);
         } catch (IllegalArgumentException e) {
-            return ANALYST; // Default to ANALYST for safety if role is unknown
+            return USER; // Default to USER for safety if role is unknown
         }
     }
 }

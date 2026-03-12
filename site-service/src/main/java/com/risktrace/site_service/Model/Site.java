@@ -15,6 +15,7 @@ public class Site {
     @Id
     private String id;
     private String userId; // owner — resolved from JWT at creation time
+    private String organizationId;
     private String siteName; // matches spec field name
     private String domain;
     private String apiKey;

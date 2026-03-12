@@ -19,26 +19,16 @@ public class CorsConfig {
     public CorsWebFilter corsWebFilter() {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
 
-        // ── Log collect endpoint: open to any origin (tracker.js from external sites)
-        // ──
-        CorsConfiguration logConfig = new CorsConfiguration();
-        logConfig.setAllowedOriginPatterns(List.of("*"));
-        logConfig.setAllowedMethods(Arrays.asList("POST", "OPTIONS"));
-        logConfig.setAllowedHeaders(List.of("*"));
-        logConfig.setAllowCredentials(false); // no cookies from external sites
-        logConfig.setMaxAge(3600L);
-        source.registerCorsConfiguration("/api/logs/collect", logConfig);
-        source.registerCorsConfiguration("/api/logs/collect/**", logConfig);
+        CorsConfiguration config = new CorsConfiguration();
+        // Allow the Angular app AND the local file tester (null origin)
+        config.setAllowedOriginPatterns(List.of("http://localhost:4200", "*"));
+        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
 
-        // ── All other endpoints: Angular frontend only ──
-        CorsConfiguration appConfig = new CorsConfiguration();
-        appConfig.setAllowedOrigins(List.of("http://localhost:4200"));
-        appConfig.setAllowedMethods(Arrays.asList(
-                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"));
-        appConfig.setAllowedHeaders(List.of("*"));
-        appConfig.setAllowCredentials(true);
-        appConfig.setMaxAge(3600L);
-        source.registerCorsConfiguration("/**", appConfig);
+        // Apply one single config to everything to avoid "multiple values" error
+        source.registerCorsConfiguration("/**", config);
 
         return new CorsWebFilter(source);
     }

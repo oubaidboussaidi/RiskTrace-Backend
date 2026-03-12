@@ -32,33 +32,34 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
 
             if (validator.isSecured.test(exchange.getRequest())) {
 
-                // Check Authorization header exists
-                if (!exchange.getRequest().getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
-                    return onError(exchange, "Missing Authorization Header", HttpStatus.UNAUTHORIZED);
-                }
-
+                // 1️⃣ Check Authorization header exists or query params (for SSE EventSource)
                 String authHeader = exchange.getRequest()
                         .getHeaders()
                         .getFirst(HttpHeaders.AUTHORIZATION);
 
-                if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                    return onError(exchange, "Invalid Authorization Header", HttpStatus.UNAUTHORIZED);
+                String token = null;
+
+                if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                    token = authHeader.substring(7);
+                } else if (exchange.getRequest().getQueryParams().containsKey("token")) {
+                    token = exchange.getRequest().getQueryParams().getFirst("token");
                 }
 
-                // Extract token
-                String token = authHeader.substring(7);
+                if (token == null) {
+                    return onError(exchange, "Missing or Invalid Authorization Token", HttpStatus.UNAUTHORIZED);
+                }
 
                 try {
-                    // Validate token at gateway
+                    // 3️⃣ Validate token at gateway
                     if (!jwtUtils.isTokenValid(token)) {
                         return onError(exchange, "Invalid Token", HttpStatus.UNAUTHORIZED);
                     }
 
-                    // Extract user info
+                    // 4️⃣ Extract user info
                     String email = jwtUtils.extractEmail(token);
                     String userId = jwtUtils.extractUserId(token);
 
-                    //  IMPORTANT: forward Authorization header to downstream service
+                    // ⭐ IMPORTANT: forward Authorization header to downstream service
                     ServerHttpRequest request = exchange.getRequest().mutate()
                             .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                             .header("X-User-Email", email)

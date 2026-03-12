@@ -10,6 +10,8 @@ import java.util.List;
 public interface LogRepository extends MongoRepository<Log, String> {
     List<Log> findBySiteId(String siteId);
 
+    List<Log> findByOrganizationId(String organizationId);
+
     List<Log> findByType(String type);
 
     List<Log> findBySiteIdAndType(String siteId, String type);

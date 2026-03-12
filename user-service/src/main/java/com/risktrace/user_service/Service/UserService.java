@@ -2,6 +2,7 @@ package com.risktrace.user_service.Service;
 
 import com.risktrace.user_service.DTO.*;
 import com.risktrace.user_service.Enums.Role;
+import com.risktrace.user_service.Enums.OrganizationRole;
 import com.risktrace.user_service.Exception.AccountNotVerifiedException;
 import com.risktrace.user_service.Exception.EmailUnverifiedPendingException;
 import com.risktrace.user_service.Exception.InvalidTokenException;
@@ -9,10 +10,12 @@ import com.risktrace.user_service.Model.BlacklistedToken;
 import com.risktrace.user_service.Model.PasswordResetToken;
 import com.risktrace.user_service.Model.RefreshToken;
 import com.risktrace.user_service.Model.User;
+import com.risktrace.user_service.Model.OrganizationMember;
 import com.risktrace.user_service.Model.VerificationToken;
 import com.risktrace.user_service.Repository.BlacklistedTokenRepository;
 import com.risktrace.user_service.Repository.PasswordResetTokenRepository;
 import com.risktrace.user_service.Repository.RefreshTokenRepository;
+import com.risktrace.user_service.Repository.OrganizationMemberRepository;
 import com.risktrace.user_service.Repository.UserRepository;
 import com.risktrace.user_service.Repository.VerificationTokenRepository;
 import com.risktrace.user_service.Security.JwtUtils;
@@ -48,6 +51,7 @@ public class UserService {
     private final EmailService emailService;
     private final BlacklistedTokenRepository blacklistedTokenRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final OrganizationMemberRepository organizationMemberRepository;
 
     @Value("${app.verification-token-expiry-hours:24}")
     private long verificationTokenExpiryHours;
@@ -76,7 +80,7 @@ public class UserService {
                 .fullName(request.getFullName())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role(Role.ANALYST)
+                .role(Role.USER)
                 .enabled(false) // Must verify email first
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
@@ -118,7 +122,7 @@ public class UserService {
         return AuthResponse.builder()
                 .token(jwtToken)
                 .refreshToken(refreshToken)
-                .role(user.getRole() != null ? user.getRole().name() : Role.ANALYST.name())
+                .role(user.getRole() != null ? user.getRole().name() : Role.USER.name())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .id(user.getId())
@@ -148,7 +152,7 @@ public class UserService {
         return AuthResponse.builder()
                 .token(newAccessToken)
                 .refreshToken(newRefreshTokenStr)
-                .role(user.getRole() != null ? user.getRole().name() : Role.ANALYST.name())
+                .role(user.getRole() != null ? user.getRole().name() : Role.USER.name())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .id(user.getId())
@@ -265,10 +269,29 @@ public class UserService {
         return mapToUserResponse(repository.save(user));
     }
 
+    @Transactional
     public void deleteUser(String id) {
         if (!repository.existsById(id)) {
             throw new UsernameNotFoundException("User not found");
         }
+
+        // Prevent deleting if user is the sole owner of any organization
+        List<OrganizationMember> memberships = organizationMemberRepository.findByUserId(id);
+        for (OrganizationMember membership : memberships) {
+            if (membership.getRole() == OrganizationRole.OWNER) {
+                long ownerCount = organizationMemberRepository.findByOrganizationId(membership.getOrganizationId())
+                        .stream()
+                        .filter(m -> m.getRole() == OrganizationRole.OWNER)
+                        .count();
+                if (ownerCount <= 1) {
+                    throw new RuntimeException(
+                            "Cannot delete user: They are the sole owner of an organization. Please transfer ownership or delete the organization first.");
+                }
+            }
+        }
+
+        // Remove from all organizations before user deletion
+        organizationMemberRepository.deleteByUserId(id);
         repository.deleteById(id);
     }
 
@@ -371,7 +394,7 @@ public class UserService {
                 .id(user.getId())
                 .fullName(user.getFullName())
                 .email(user.getEmail())
-                .role(user.getRole() != null ? user.getRole() : Role.ANALYST)
+                .role(user.getRole() != null ? user.getRole() : Role.USER)
                 .enabled(user.isEnabled())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())

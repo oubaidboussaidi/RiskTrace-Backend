@@ -32,7 +32,7 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
 
             if (validator.isSecured.test(exchange.getRequest())) {
 
-                // 1️⃣ Check Authorization header exists
+                // Check Authorization header exists
                 if (!exchange.getRequest().getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
                     return onError(exchange, "Missing Authorization Header", HttpStatus.UNAUTHORIZED);
                 }
@@ -45,20 +45,20 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
                     return onError(exchange, "Invalid Authorization Header", HttpStatus.UNAUTHORIZED);
                 }
 
-                // 2️⃣ Extract token
+                // Extract token
                 String token = authHeader.substring(7);
 
                 try {
-                    // 3️⃣ Validate token at gateway
+                    // Validate token at gateway
                     if (!jwtUtils.isTokenValid(token)) {
                         return onError(exchange, "Invalid Token", HttpStatus.UNAUTHORIZED);
                     }
 
-                    // 4️⃣ Extract user info
+                    // Extract user info
                     String email = jwtUtils.extractEmail(token);
                     String userId = jwtUtils.extractUserId(token);
 
-                    // ⭐ IMPORTANT: forward Authorization header to downstream service
+                    //  IMPORTANT: forward Authorization header to downstream service
                     ServerHttpRequest request = exchange.getRequest().mutate()
                             .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                             .header("X-User-Email", email)

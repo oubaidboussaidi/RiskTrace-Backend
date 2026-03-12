@@ -34,7 +34,7 @@ public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http)
     return http
             .csrf(csrf -> csrf.disable())
             .authorizeExchange(exchanges -> exchanges
-                    .anyExchange().permitAll()   // ⭐ let AuthenticationFilter handle JWT
+                    .anyExchange().permitAll()   //  let AuthenticationFilter handle JWT
             )
             .build();
 }

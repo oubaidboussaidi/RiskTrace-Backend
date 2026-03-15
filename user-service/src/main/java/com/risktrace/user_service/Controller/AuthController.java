@@ -45,6 +45,24 @@ public class AuthController {
         return ResponseEntity.ok(authResponse);
     }
 
+    // --- Verify 2FA ---
+    @PostMapping("/verify-2fa")
+    public ResponseEntity<AuthResponse> verify2fa(@RequestBody Verify2FARequest request, HttpServletResponse response) {
+        AuthResponse authResponse = userService.verify2fa(request);
+
+        // Send refresh token as httpOnly, secure cookie
+        Cookie refreshCookie = new Cookie("refreshToken", authResponse.getRefreshToken());
+        refreshCookie.setHttpOnly(true);
+        refreshCookie.setSecure(false);
+        refreshCookie.setPath("/api/auth/refresh");
+        refreshCookie.setMaxAge(7 * 24 * 60 * 60);
+        response.addCookie(refreshCookie);
+
+        authResponse.setRefreshToken(null);
+
+        return ResponseEntity.ok(authResponse);
+    }
+
     // --- Refresh Access Token ---
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refresh(HttpServletRequest request, HttpServletResponse response) {

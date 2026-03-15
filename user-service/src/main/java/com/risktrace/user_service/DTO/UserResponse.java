@@ -17,6 +17,7 @@ public class UserResponse {
     private String email;
     private Role role;
     private boolean enabled;
+    private boolean isTwoFactorEnabled;
     private Instant createdAt;
     private Instant updatedAt;
 }

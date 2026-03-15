@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class UpdateUserRequest {
-    private String role;
-    private Boolean enabled;
+public class Setup2FaResponse {
+    private String secret;
+    private String qrCodeImage;
 }

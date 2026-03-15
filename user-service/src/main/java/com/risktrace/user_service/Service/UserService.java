@@ -30,6 +30,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import dev.samstevens.totp.code.CodeVerifier;
+import dev.samstevens.totp.code.HashingAlgorithm;
+import dev.samstevens.totp.exceptions.QrGenerationException;
+import dev.samstevens.totp.qr.QrData;
+import dev.samstevens.totp.qr.QrGenerator;
+import dev.samstevens.totp.secret.SecretGenerator;
+import dev.samstevens.totp.util.Utils;
+
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
@@ -52,6 +60,9 @@ public class UserService {
     private final BlacklistedTokenRepository blacklistedTokenRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final OrganizationMemberRepository organizationMemberRepository;
+    private final SecretGenerator secretGenerator;
+    private final QrGenerator qrGenerator;
+    private final CodeVerifier codeVerifier;
 
     @Value("${app.verification-token-expiry-hours:24}")
     private long verificationTokenExpiryHours;
@@ -116,6 +127,15 @@ public class UserService {
             throw new AccountNotVerifiedException("ACCOUNT_NOT_VERIFIED");
         }
 
+        if (user.isTwoFactorEnabled()) {
+            String mfaToken = jwtUtils.generateMfaToken(user.getEmail());
+            return AuthResponse.builder()
+                    .mfaRequired(true)
+                    .mfaToken(mfaToken)
+                    .email(user.getEmail())
+                    .build();
+        }
+
         var jwtToken = jwtUtils.generateToken(user);
         var refreshToken = createRefreshToken(user.getId());
 
@@ -127,6 +147,84 @@ public class UserService {
                 .fullName(user.getFullName())
                 .id(user.getId())
                 .build();
+    }
+
+    public AuthResponse verify2fa(Verify2FARequest request) {
+        String email = jwtUtils.extractEmail(request.getMfaToken());
+        User user = repository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        if (!codeVerifier.isValidCode(user.getTwoFactorSecret(), request.getCode())) {
+            throw new IllegalArgumentException("Invalid verification code");
+        }
+
+        var jwtToken = jwtUtils.generateToken(user);
+        var refreshToken = createRefreshToken(user.getId());
+
+        return AuthResponse.builder()
+                .token(jwtToken)
+                .refreshToken(refreshToken)
+                .role(user.getRole() != null ? user.getRole().name() : Role.USER.name())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .id(user.getId())
+                .build();
+    }
+
+    public Setup2FaResponse setup2fa(String email) {
+        User user = repository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        String secret = secretGenerator.generate();
+        QrData data = new QrData.Builder()
+                .label(user.getEmail())
+                .secret(secret)
+                .issuer("RiskTrace")
+                .algorithm(HashingAlgorithm.SHA1)
+                .digits(6)
+                .period(30)
+                .build();
+
+        String qrCodeBase64;
+        try {
+            byte[] qrCodeBytes = qrGenerator.generate(data);
+            qrCodeBase64 = Utils.getDataUriForImage(qrCodeBytes, qrGenerator.getImageMimeType());
+        } catch (QrGenerationException e) {
+            throw new RuntimeException("Failed to generate QR code", e);
+        }
+
+        return Setup2FaResponse.builder()
+                .secret(secret)
+                .qrCodeImage(qrCodeBase64)
+                .build();
+    }
+
+    @Transactional
+    public void enable2fa(String email, Enable2FaRequest request) {
+        User user = repository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        if (!codeVerifier.isValidCode(request.getSecret(), request.getCode())) {
+            throw new IllegalArgumentException("Invalid verification code");
+        }
+
+        user.setTwoFactorSecret(request.getSecret());
+        user.setTwoFactorEnabled(true);
+        repository.save(user);
+    }
+
+    @Transactional
+    public void disable2fa(String email, String currentPassword) {
+        User user = repository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new IllegalArgumentException("Incorrect current password");
+        }
+
+        user.setTwoFactorEnabled(false);
+        user.setTwoFactorSecret(null);
+        repository.save(user);
     }
 
     @Transactional
@@ -255,18 +353,27 @@ public class UserService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
     }
 
+    @Transactional
     public UserResponse updateUser(String id, UpdateUserRequest request) {
+        log.info("updateUser called for id={} with request role='{}' enabled={}", id, request.getRole(), request.getEnabled());
+
         var user = repository.findById(id)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        if (request.getRole() != null) {
-            user.setRole(request.getRole());
+        log.info("User found: {} current role={}", user.getEmail(), user.getRole());
+
+        if (request.getRole() != null && !request.getRole().isBlank()) {
+            Role newRole = Role.fromString(request.getRole());
+            log.info("Resolved new role: '{}' -> {}", request.getRole(), newRole);
+            user.setRole(newRole);
         }
         if (request.getEnabled() != null) {
             user.setEnabled(request.getEnabled());
         }
         user.setUpdatedAt(Instant.now());
-        return mapToUserResponse(repository.save(user));
+        User saved = repository.save(user);
+        log.info("Saved user {} with role={}", saved.getEmail(), saved.getRole());
+        return mapToUserResponse(saved);
     }
 
     @Transactional
@@ -396,6 +503,7 @@ public class UserService {
                 .email(user.getEmail())
                 .role(user.getRole() != null ? user.getRole() : Role.USER)
                 .enabled(user.isEnabled())
+                .isTwoFactorEnabled(user.isTwoFactorEnabled())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();

@@ -82,4 +82,13 @@ public class JwtUtils {
     public void printKey() {
         System.out.println("JWT SECRET = " + secretKey);
     }
+    public String generateMfaToken(String email) {
+        return Jwts.builder()
+                .claim("mfa", true)
+                .subject(email)
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 5)) // 5 minutes
+                .signWith(getSignInKey(), Jwts.SIG.HS256)
+                .compact();
+    }
 }

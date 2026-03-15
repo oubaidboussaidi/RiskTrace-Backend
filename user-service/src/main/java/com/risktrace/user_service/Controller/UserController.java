@@ -33,13 +33,22 @@ public class UserController {
 
     @PutMapping("/users/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<UserResponse> updateUser(@PathVariable String id, @RequestBody UpdateUserRequest request) {
+    public ResponseEntity<?> updateUser(@PathVariable String id, @RequestBody UpdateUserRequest request,
+            Authentication authentication) {
+        String requesterId = userService.getProfile(authentication.getName()).getId();
+        if (requesterId.equals(id)) {
+            return ResponseEntity.status(403).body(Map.of("error", "You cannot modify your own account from the admin panel."));
+        }
         return ResponseEntity.ok(userService.updateUser(id, request));
     }
 
     @DeleteMapping("/users/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> deleteUser(@PathVariable String id) {
+    public ResponseEntity<?> deleteUser(@PathVariable String id, Authentication authentication) {
+        String requesterId = userService.getProfile(authentication.getName()).getId();
+        if (requesterId.equals(id)) {
+            return ResponseEntity.status(403).body(Map.of("error", "You cannot delete your own account from the admin panel."));
+        }
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
     }
@@ -73,5 +82,23 @@ public class UserController {
             @RequestBody ChangePasswordRequest request) {
         userService.changePassword(authentication.getName(), request);
         return ResponseEntity.ok(Map.of("message", "Password changed successfully"));
+    }
+
+    // 2FA Endpoints
+    @GetMapping("/profile/2fa/setup")
+    public ResponseEntity<Setup2FaResponse> setup2fa(Authentication authentication) {
+        return ResponseEntity.ok(userService.setup2fa(authentication.getName()));
+    }
+
+    @PostMapping("/profile/2fa/enable")
+    public ResponseEntity<Map<String, String>> enable2fa(Authentication authentication, @RequestBody Enable2FaRequest request) {
+        userService.enable2fa(authentication.getName(), request);
+        return ResponseEntity.ok(Map.of("message", "Two-factor authentication enabled successfully"));
+    }
+
+    @PostMapping("/profile/2fa/disable")
+    public ResponseEntity<Map<String, String>> disable2fa(Authentication authentication, @RequestBody Map<String, String> request) {
+        userService.disable2fa(authentication.getName(), request.get("currentPassword"));
+        return ResponseEntity.ok(Map.of("message", "Two-factor authentication disabled successfully"));
     }
 }

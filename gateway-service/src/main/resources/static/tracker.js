@@ -4,6 +4,7 @@
     // ====================================================
     // 1. CONFIGURATION & INITIALISATION
     // ====================================================
+    // Finds the <script> tag that loaded this file to extract API key and endpoint.
     const SCRIPT = document.currentScript || (function () {
         const scripts = document.getElementsByTagName("script");
         for (let s of scripts) {
@@ -21,7 +22,7 @@
         return;
     }
 
-    // Session ID
+    // Initialize or retrieve the unique session identifier.
     let SESSION_ID = sessionStorage.getItem("tracker_session_id");
     if (!SESSION_ID) {
         SESSION_ID = "s_" + Date.now() + "_" + Math.random().toString(36).substring(2, 10);
@@ -29,7 +30,41 @@
     }
 
     // ====================================================
-    // 2. FILE D’ATTENTE & BATCHING
+    // 2. EXTRACTION DE DONNÉES AVANCÉES
+    // ====================================================
+    
+    // Default geolocation structure
+    let geoData = {
+        ip: null,
+        country: null,
+        city: null
+    };
+
+    // Fetch IP and Geo Location asynchronously from a reliable free API
+    function fetchGeoData() {
+        fetch("https://get.geojs.io/v1/ip/geo.json")
+            .then(response => response.json())
+            .then(data => {
+                geoData.ip = data.ip || null;
+                geoData.country = data.country || null;
+                geoData.city = data.city || null;
+                if (DEBUG) console.log("[Tracker] GeoData récupérée", geoData);
+            })
+            .catch(error => {
+                if (DEBUG) console.error("[Tracker] Erreur lors de la récupération GeoData", error);
+            });
+    }
+    fetchGeoData(); // Trigger immediately
+
+    function getDeviceType() {
+        const ua = navigator.userAgent.toLowerCase();
+        if (/mobile|android|iphone|ipod/.test(ua)) return "mobile";
+        if (/tablet|ipad/.test(ua)) return "tablet";
+        return "desktop";
+    }
+
+    // ====================================================
+    // 3. FILE D’ATTENTE & BATCHING
     // ====================================================
     const logQueue = [];
     let batchTimer = null;
@@ -38,16 +73,17 @@
         logQueue.push({
             apiKey: API_KEY,
             sessionId: SESSION_ID,
-            ipAddress: null, // rempli par le backend
-            country: null, // rempli par le backend
-            city: null, // rempli par le backend
-            url: logData.url || window.location.pathname,
+            // Enhanced Tracker Fields
+            ipAddress: geoData.ip, 
+            country: geoData.country, 
+            city: geoData.city, 
+            url: logData.url || window.location.href, // full URL
             method: logData.method || "GET",
             statusCode: logData.statusCode || null,
             userAgent: navigator.userAgent,
             device: getDeviceType(),
             responseTime: logData.responseTime || null,
-            type: logData.type,
+            type: logData.type || "unknown",
             createdAt: new Date().toISOString()
         });
 
@@ -78,42 +114,14 @@
             body: JSON.stringify(payload),
             keepalive: true
         }).catch(() => {
-            logQueue.unshift(...payload);
+            logQueue.unshift(...payload); // Return failed logs to the front of queue
         });
     }
 
-    // ====================================================
-    // 3. OUTILS
-    // ====================================================
-    function getDeviceType() {
-        const ua = navigator.userAgent.toLowerCase();
-        if (/mobile|android|iphone/.test(ua)) return "mobile";
-        if (/tablet|ipad/.test(ua)) return "tablet";
-        return "desktop";
-    }
 
-    let requestCount = 0;
-    let alertSentThisMinute = false;
-
-    function incrementRequestCount() {
-        requestCount++;
-        if (requestCount > 20 && !alertSentThisMinute) {
-            enqueueLog({
-                type: "suspicious_activity",
-                method: "GET",
-                statusCode: 429
-            });
-            alertSentThisMinute = true;
-        }
-    }
-
-    setInterval(() => {
-        requestCount = 0;
-        alertSentThisMinute = false;
-    }, 60000);
 
     // ====================================================
-    // 4. INTERCEPTION FETCH
+    // 5. INTERCEPTION FETCH
     // ====================================================
     const originalFetch = window.fetch;
     window.fetch = function (...args) {
@@ -121,22 +129,22 @@
         const [url, options = {}] = args;
         const method = options.method || "GET";
         const isOwnRequest = typeof url === "string" && url.includes(API_URL);
+        const urlString = typeof url === "string" ? url : (url.url || "unknown");
 
-        if (!isOwnRequest) {
-            incrementRequestCount();
+        if (!isOwnRequest && !urlString.includes("geojs.io")) { // Skip tracking the GeoIP fetch
             enqueueLog({
                 type: "fetch_request",
-                url: typeof url === "string" ? url : url.url,
+                url: urlString,
                 method: method
             });
         }
 
         return originalFetch.apply(this, args).then((response) => {
-            if (!isOwnRequest) {
+            if (!isOwnRequest && !urlString.includes("geojs.io")) {
                 const responseTime = Math.round(performance.now() - requestStart);
                 enqueueLog({
                     type: "fetch_response",
-                    url: typeof url === "string" ? url : url.url,
+                    url: urlString,
                     method: method,
                     statusCode: response.status,
                     responseTime: responseTime
@@ -147,7 +155,7 @@
     };
 
     // ====================================================
-    // 5. INTERCEPTION XHR
+    // 6. INTERCEPTION XHR
     // ====================================================
     const originalXHROpen = XMLHttpRequest.prototype.open;
     const originalXHRSend = XMLHttpRequest.prototype.send;
@@ -160,13 +168,8 @@
     XMLHttpRequest.prototype.send = function () {
         if (this._trackerData) {
             this._trackerData.startTime = performance.now();
-            const url = this._trackerData.url;
-            const method = this._trackerData.method;
-            const isOwnRequest = url.includes(API_URL);
-
-            if (!isOwnRequest) {
-                incrementRequestCount();
-            }
+            const url = this._trackerData.url || "";
+            const isOwnRequest = url.includes(API_URL) || url.includes("geojs.io");
 
             this.addEventListener("loadend", () => {
                 if (!isOwnRequest && this._trackerData) {
@@ -185,40 +188,43 @@
     };
 
     // ====================================================
-    // 6. CHARGEMENT PAGE
+    // 7. CHARGEMENT PAGE
     // ====================================================
     window.addEventListener("load", () => {
-        const perf = performance.getEntriesByType("navigation")[0];
-        const responseTime = perf ? Math.round(perf.duration) : null;
-        enqueueLog({
-            type: "page_load",
-            method: "GET",
-            statusCode: 200,
-            responseTime: responseTime
-        });
+        // Use timeout to ensure geoData API fetch had a bit of time to resolve if possible
+        setTimeout(() => {
+            const perf = performance.getEntriesByType("navigation")[0];
+            const responseTime = perf ? Math.round(perf.duration) : null;
+            enqueueLog({
+                type: "page_load",
+                method: "GET",
+                statusCode: 200,
+                responseTime: responseTime
+            });
+        }, 1500);
     });
 
     // ====================================================
-    // 7. FORMULAIRES
+    // 8. FORMULAIRES
     // ====================================================
     document.addEventListener("submit", (e) => {
         const form = e.target;
         enqueueLog({
             type: "form_submit",
             method: (form.method || "POST").toUpperCase(),
-            url: form.action || window.location.pathname
+            url: form.action || window.location.href
         });
     });
 
     // ====================================================
-    // 8. ERREURS JAVASCRIPT
+    // 9. ERREURS JAVASCRIPT
     // ====================================================
     window.addEventListener("error", (e) => {
         enqueueLog({
             type: "js_error",
             method: "GET",
             statusCode: 500,
-            url: e.filename || window.location.pathname
+            url: e.filename || window.location.href
         });
     });
 
@@ -226,17 +232,22 @@
         enqueueLog({
             type: "unhandled_promise_rejection",
             method: "GET",
-            statusCode: 500
+            statusCode: 500,
+            url: window.location.href
         });
     });
 
     // ====================================================
-    // 9. VIDAGE FINAL
+    // 10. VIDAGE FINAL
     // ====================================================
     window.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "hidden") {
             flushLogs();
         }
+    });
+
+    window.addEventListener("beforeunload", () => {
+        flushLogs();
     });
 
     setTimeout(flushLogs, 2000);

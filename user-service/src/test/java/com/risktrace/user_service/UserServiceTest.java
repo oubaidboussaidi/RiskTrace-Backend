@@ -53,7 +53,7 @@ class UserServiceTest {
                 .id("1")
                 .fullName("Test User")
                 .email("test@example.com")
-                .role(Role.ANALYST)
+                .role(Role.USER)
                 .build();
 
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
@@ -64,7 +64,7 @@ class UserServiceTest {
 
         assertNotNull(response);
         assertEquals("test@example.com", response.getEmail());
-        assertEquals(Role.ANALYST, response.getRole());
+        assertEquals(Role.USER, response.getRole());
         verify(userRepository, times(1)).save(any(User.class));
     }
 
@@ -84,7 +84,7 @@ class UserServiceTest {
                 .id("1")
                 .fullName("Test User")
                 .email("test@example.com")
-                .role(Role.ANALYST)
+                .role(Role.USER)
                 .build();
 
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(null);

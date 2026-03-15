@@ -12,6 +12,9 @@ public class LogRequestDto {
     private Integer statusCode;
     private String userAgent;
     private String device;
+    private String ipAddress;
+    private String country;
+    private String city;
     private Long responseTime;
     private String createdAt;
 }

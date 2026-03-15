@@ -76,6 +76,11 @@ public class User implements UserDetails {
         return true;
     }
 
+    @Builder.Default
+    private boolean isTwoFactorEnabled = false;
+
+    private String twoFactorSecret;
+
     @Override
     public boolean isEnabled() {
         return enabled;

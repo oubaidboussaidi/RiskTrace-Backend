@@ -83,7 +83,11 @@ public class LogService {
             log.setDevice(dto.getDevice());
             log.setResponseTime(dto.getResponseTime());
             log.setCreatedAt(dto.getCreatedAt());
-            log.setIpAddress(clientIp);
+            
+            // Allow frontend to explicitly set IP/Location if available, fallback to backend resolved IP
+            log.setIpAddress(dto.getIpAddress() != null ? dto.getIpAddress() : clientIp);
+            log.setCountry(dto.getCountry());
+            log.setCity(dto.getCity());
             enriched.add(log);
         }
 

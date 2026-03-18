@@ -9,3 +9,4 @@
 // Backend Change at 2026-03-17 19:12:02 : fix(cache): improve redis cache eviction policy
 // Backend Change at 2026-03-17 16:10:19 : refactor(dto): update request/response objects for logs
 // Backend Change at 2026-03-18 19:07:11 : docs(api): update swagger documentation for user endpoints
+// Backend Change at 2026-03-18 16:39:32 : feat(alert): add email notification template for high risk

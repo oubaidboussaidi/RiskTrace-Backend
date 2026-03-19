@@ -12,3 +12,4 @@
 // Backend Change at 2026-03-18 16:39:32 : feat(alert): add email notification template for high risk
 // Backend Change at 2026-03-19 20:20:15 : test(user): add unit tests for registration service
 // Backend Change at 2026-03-19 13:30:43 : docs(api): update swagger documentation for user endpoints
+// Backend Change at 2026-03-19 16:02:54 : docs(api): update swagger documentation for user endpoints

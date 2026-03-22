@@ -24,3 +24,4 @@
 // Backend Change at 2026-03-21 16:24:17 : feat(site-service): implement site metadata crawler
 // Backend Change at 2026-03-21 20:23:44 : style: format backend code according to google style guide
 // Backend Change at 2026-03-22 15:40:14 : feat(database): add database migrations for site tracking
+// Backend Change at 2026-03-22 10:40:56 : docs(api): update swagger documentation for user endpoints

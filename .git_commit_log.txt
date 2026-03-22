@@ -26,3 +26,4 @@
 // Backend Change at 2026-03-22 15:40:14 : feat(database): add database migrations for site tracking
 // Backend Change at 2026-03-22 10:40:56 : docs(api): update swagger documentation for user endpoints
 // Backend Change at 2026-03-22 14:11:35 : fix(log): handle database connection timeout
+// Backend Change at 2026-03-22 13:39:46 : docs(api): update swagger documentation for user endpoints

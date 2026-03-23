@@ -32,3 +32,4 @@
 // Backend Change at 2026-03-23 17:04:52 : feat(site-service): implement site metadata crawler
 // Backend Change at 2026-03-23 14:46:58 : refactor(gateway): optimize route definitions
 // Backend Change at 2026-03-23 16:08:04 : feat(security): implement role-based access control
+// Backend Change at 2026-03-23 13:02:42 : test(user): add unit tests for registration service

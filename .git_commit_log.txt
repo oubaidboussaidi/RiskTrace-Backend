@@ -30,3 +30,4 @@
 // Backend Change at 2026-03-22 20:15:48 : feat(database): add database migrations for site tracking
 // Backend Change at 2026-03-22 15:36:16 : feat(database): add database migrations for site tracking
 // Backend Change at 2026-03-23 17:04:52 : feat(site-service): implement site metadata crawler
+// Backend Change at 2026-03-23 14:46:58 : refactor(gateway): optimize route definitions

@@ -34,3 +34,4 @@
 // Backend Change at 2026-03-23 16:08:04 : feat(security): implement role-based access control
 // Backend Change at 2026-03-23 13:02:42 : test(user): add unit tests for registration service
 // Backend Change at 2026-03-23 10:20:01 : fix(log): handle database connection timeout
+// Backend Change at 2026-03-24 19:21:28 : feat(database): add database migrations for site tracking

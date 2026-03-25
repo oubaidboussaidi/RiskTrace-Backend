@@ -39,3 +39,4 @@
 // Backend Change at 2026-03-24 14:36:10 : feat(user-service): implement jwt token generation logic
 // Backend Change at 2026-03-24 16:16:44 : feat(security): implement role-based access control
 // Backend Change at 2026-03-24 10:09:38 : style: format backend code according to google style guide
+// Backend Change at 2026-03-25 10:13:48 : refactor(gateway): optimize route definitions

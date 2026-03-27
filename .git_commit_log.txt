@@ -44,3 +44,4 @@
 // Backend Change at 2026-03-26 12:56:51 : fix(log): handle database connection timeout
 // Backend Change at 2026-03-26 17:43:03 : feat(alert): add email notification template for high risk
 // Backend Change at 2026-03-27 12:05:42 : refactor(gateway): optimize route definitions
+// Backend Change at 2026-03-27 14:44:37 : feat(site-service): implement site metadata crawler

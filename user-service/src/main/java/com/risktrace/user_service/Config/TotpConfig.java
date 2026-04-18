@@ -26,10 +26,10 @@ public class TotpConfig {
     @Bean
     public CodeVerifier codeVerifier() {
         TimeProvider timeProvider = new SystemTimeProvider();
-        CodeGenerator codeGenerator = new DefaultCodeGenerator();
+        CodeGenerator codeGenerator = new DefaultCodeGenerator(HashingAlgorithm.SHA1, 6);
         DefaultCodeVerifier verifier = new DefaultCodeVerifier(codeGenerator, timeProvider);
         verifier.setTimePeriod(30);
-        verifier.setAllowedTimePeriodDiscrepancy(1); // Allows 1 period (30s) before/after
+        verifier.setAllowedTimePeriodDiscrepancy(1); // Reset to 1 (30s window) 
         return verifier;
     }
 }

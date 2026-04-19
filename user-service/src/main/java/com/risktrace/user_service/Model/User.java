@@ -48,6 +48,14 @@ public class User implements UserDetails {
     @LastModifiedDate
     private Instant updatedAt;
 
+    @Builder.Default
+    private int failedLoginAttempts = 0;
+
+    @Builder.Default
+    private boolean accountNonLocked = true;
+
+    private Instant lockTime;
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         if (role == null) {
@@ -68,7 +76,7 @@ public class User implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return true;
+        return accountNonLocked;
     }
 
     @Override

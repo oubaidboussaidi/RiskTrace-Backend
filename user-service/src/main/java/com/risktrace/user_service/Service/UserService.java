@@ -4,6 +4,7 @@ import com.risktrace.user_service.DTO.*;
 import com.risktrace.user_service.Enums.Role;
 import com.risktrace.user_service.Enums.OrganizationRole;
 import com.risktrace.user_service.Exception.AccountNotVerifiedException;
+import com.risktrace.user_service.Exception.AccountLockedException;
 import com.risktrace.user_service.Exception.EmailUnverifiedPendingException;
 import com.risktrace.user_service.Exception.InvalidTokenException;
 import com.risktrace.user_service.Model.BlacklistedToken;
@@ -70,6 +71,9 @@ public class UserService {
     @Value("${app.password-reset-token-expiry-hours:1}")
     private long passwordResetTokenExpiryHours;
 
+    private static final int MAX_FAILED_ATTEMPTS = 5;
+    private static final long LOCK_TIME_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+
     // =========================================================================
     // REGISTRATION (enabled = false until email verified)
     // =========================================================================
@@ -111,20 +115,36 @@ public class UserService {
     // =========================================================================
 
     public AuthResponse authenticate(LoginRequest request) {
+        var user = repository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        if (!user.isAccountNonLocked()) {
+            if (unlockWhenTimeExpired(user)) {
+                log.info("Account unlocked for user: {}", user.getEmail());
+            } else {
+                throw new AccountLockedException("Your account has been locked due to too many failed login attempts. Please try again later.");
+            }
+        }
+
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
         } catch (DisabledException e) {
             throw new AccountNotVerifiedException("ACCOUNT_NOT_VERIFIED");
+        } catch (org.springframework.security.authentication.LockedException e) {
+            throw new AccountLockedException("ACCOUNT_LOCKED");
+        } catch (org.springframework.security.authentication.BadCredentialsException e) {
+            increaseFailedAttempts(user);
+            int remainingAttempts = MAX_FAILED_ATTEMPTS - user.getFailedLoginAttempts();
+            if (remainingAttempts > 0) {
+                throw new RuntimeException("Invalid credentials. " + remainingAttempts + " attempts remaining.");
+            } else {
+                throw new AccountLockedException("Your account has been locked due to too many failed login attempts.");
+            }
         }
 
-        var user = repository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-
-        // Extra safety check (should never reach here since Spring Security checks
-        // enabled)
-        if (!user.isEnabled()) {
-            throw new AccountNotVerifiedException("ACCOUNT_NOT_VERIFIED");
+        if (user.getFailedLoginAttempts() > 0) {
+            resetFailedAttempts(user.getEmail());
         }
 
         if (user.isTwoFactorEnabled()) {
@@ -154,7 +174,11 @@ public class UserService {
         User user = repository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        if (!codeVerifier.isValidCode(user.getTwoFactorSecret(), request.getCode())) {
+        log.info("Verifying 2FA for user: {}. Code provided: {}", email, request.getCode());
+        boolean isValid = codeVerifier.isValidCode(user.getTwoFactorSecret(), request.getCode());
+        
+        if (!isValid) {
+            log.warn("Invalid 2FA code provided for user: {}. Current server time: {}", email, Instant.now());
             throw new IllegalArgumentException("Invalid verification code");
         }
 
@@ -204,7 +228,11 @@ public class UserService {
         User user = repository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        if (!codeVerifier.isValidCode(request.getSecret(), request.getCode())) {
+        log.info("Enabling 2FA for user: {}. Code provided: {}", email, request.getCode());
+        boolean isValid = codeVerifier.isValidCode(request.getSecret(), request.getCode());
+        
+        if (!isValid) {
+            log.warn("Invalid 2FA code during enablement for user: {}. Current server time: {}", email, Instant.now());
             throw new IllegalArgumentException("Invalid verification code");
         }
 
@@ -552,5 +580,51 @@ public class UserService {
         } catch (java.security.NoSuchAlgorithmException e) {
             throw new RuntimeException("Error hashing token", e);
         }
+    }
+
+    // =========================================================================
+    // BRUTE FORCE PROTECTION HELPERS
+    // =========================================================================
+
+    private void increaseFailedAttempts(User user) {
+        int newFailAttempts = user.getFailedLoginAttempts() + 1;
+        user.setFailedLoginAttempts(newFailAttempts);
+
+        if (newFailAttempts >= MAX_FAILED_ATTEMPTS) {
+            lock(user);
+        } else {
+            repository.save(user);
+        }
+    }
+
+    private void lock(User user) {
+        user.setAccountNonLocked(false);
+        user.setLockTime(Instant.now());
+        repository.save(user);
+    }
+
+    private void resetFailedAttempts(String email) {
+        repository.findByEmail(email).ifPresent(user -> {
+            user.setFailedLoginAttempts(0);
+            repository.save(user);
+        });
+    }
+
+    private boolean unlockWhenTimeExpired(User user) {
+        if (user.getLockTime() == null)
+            return true;
+
+        long lockTimeInMillis = user.getLockTime().toEpochMilli();
+        long currentTimeInMillis = System.currentTimeMillis();
+
+        if (lockTimeInMillis + LOCK_TIME_DURATION < currentTimeInMillis) {
+            user.setAccountNonLocked(true);
+            user.setLockTime(null);
+            user.setFailedLoginAttempts(0);
+            repository.save(user);
+            return true;
+        }
+
+        return false;
     }
 }

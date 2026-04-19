@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.risktrace.user_service.Enums.Role;
 import java.time.Instant;
 
@@ -17,6 +18,8 @@ public class UserResponse {
     private String email;
     private Role role;
     private boolean enabled;
+
+    @JsonProperty("isTwoFactorEnabled")
     private boolean isTwoFactorEnabled;
     private Instant createdAt;
     private Instant updatedAt;

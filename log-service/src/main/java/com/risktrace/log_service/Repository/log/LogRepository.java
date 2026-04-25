@@ -15,4 +15,6 @@ public interface LogRepository extends MongoRepository<Log, String> {
     List<Log> findByType(String type);
 
     List<Log> findBySiteIdAndType(String siteId, String type);
+
+    List<Log> findTop100BySessionIdOrderByCreatedAtDesc(String sessionId);
 }

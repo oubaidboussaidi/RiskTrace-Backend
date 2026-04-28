@@ -2,10 +2,15 @@ package com.risktrace.log_service.Service;
 
 import com.risktrace.log_service.DTO.LogRequestDto;
 import com.risktrace.log_service.DTO.LogResponseDto;
+import com.risktrace.log_service.DTO.MlBatchRequestDto;
+import com.risktrace.log_service.DTO.MlPredictionResultDto;
+import com.risktrace.log_service.DTO.SessionFeaturesDto;
 import com.risktrace.log_service.Model.Log;
 import com.risktrace.log_service.Model.SiteRef;
 import com.risktrace.log_service.Repository.log.LogRepository;
 import com.risktrace.log_service.Repository.site.SiteRefRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -13,7 +18,10 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
@@ -21,11 +29,19 @@ import java.util.stream.Collectors;
 @Service
 public class LogService {
 
+    private static final Logger logger = LoggerFactory.getLogger(LogService.class);
+
     @Autowired
     private LogRepository logRepository;
 
     @Autowired
     private SiteRefRepository siteRefRepository;
+
+    @Autowired
+    private SessionAggregator sessionAggregator;
+
+    @Autowired
+    private MlClient mlClient;
 
     // For Live Tail
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
@@ -68,12 +84,13 @@ public class LogService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Site is inactive");
         }
 
+        // ── Step 1: Build and save raw log documents ──────────────────────────
         List<Log> enriched = new ArrayList<>();
         for (LogRequestDto dto : dtos) {
             Log log = new Log();
             log.setSiteId(site.getId());
             log.setOrganizationId(site.getOrganizationId());
-            log.setApiKey(null); // Explicitly null
+            log.setApiKey(null); // Explicitly null — not stored long-term
             log.setSessionId(dto.getSessionId());
             log.setType(dto.getType());
             log.setUrl(dto.getUrl());
@@ -83,7 +100,6 @@ public class LogService {
             log.setDevice(dto.getDevice());
             log.setResponseTime(dto.getResponseTime());
             log.setCreatedAt(dto.getCreatedAt());
-            
             // Allow frontend to explicitly set IP/Location if available, fallback to backend resolved IP
             log.setIpAddress(dto.getIpAddress() != null ? dto.getIpAddress() : clientIp);
             log.setCountry(dto.getCountry());
@@ -92,16 +108,98 @@ public class LogService {
         }
 
         List<Log> saved = logRepository.saveAll(enriched);
-        List<LogResponseDto> savedDtos = saved.stream()
+
+        // ── Step 2: ML scoring (Rolling Window) ─────────────────────────────
+        // IMPORTANT: scoreWithMl() returns a NEW list with persisted scores.
+        // We must use this returned list — the original 'saved' list still has null scores.
+        List<Log> scoredLogs = saved; // default to unscoredlogs if ML fails
+        try {
+            scoredLogs = scoreWithMl(saved);
+        } catch (Exception ex) {
+            logger.error("[LogService] ML scoring failed: {}", ex.getMessage());
+        }
+
+        // ── Step 3: Notify live tail with UPDATED scores ───────────────────
+        List<LogResponseDto> updatedDtos = scoredLogs.stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
 
-        // Notify Live Tail subscribers
-        for (LogResponseDto res : savedDtos) {
+        for (LogResponseDto res : updatedDtos) {
             notifyEmitters(res);
         }
 
-        return savedDtos;
+        return updatedDtos;
+    }
+
+    /**
+     * Groups the saved logs by sessionId, fetches recent history for each session
+     * from MongoDB, computes one feature vector per rolling window,
+     * calls the ML service, then writes anomalyScore + isAnomaly back to the NEW logs.
+     *
+     * @param saved  The batch of logs just saved in the current request.
+     * @return       The same list of logs, with updated ML scores.
+     */
+    private List<Log> scoreWithMl(List<Log> saved) {
+        if (saved == null || saved.isEmpty()) return saved;
+
+        // 1. Group the 'saved' logs by sessionId to use as fallback/context
+        Map<String, List<Log>> currentBatchBySession = saved.stream()
+                .filter(l -> l.getSessionId() != null)
+                .collect(Collectors.groupingBy(Log::getSessionId));
+
+        List<String> sessionKeys = new ArrayList<>(currentBatchBySession.keySet());
+        List<SessionFeaturesDto> sessionsFeatures = new ArrayList<>();
+
+        // 2. Build feature vectors for each session
+        for (String sid : sessionKeys) {
+            // Fetch history from DB (rolling window of 100)
+            List<Log> sessionWindow = logRepository.findTop100BySessionIdOrderByCreatedAtDesc(sid);
+            
+            // If DB is empty due to indexing lag, use the current batch we just saved
+            if (sessionWindow == null || sessionWindow.isEmpty()) {
+                sessionWindow = currentBatchBySession.get(sid);
+            }
+            
+            if (sessionWindow == null || sessionWindow.isEmpty()) continue;
+
+            // Ensure chronological order (oldest to newest) for aggregation
+            List<Log> chronologicalWindow = new ArrayList<>(sessionWindow);
+            Collections.reverse(chronologicalWindow);
+
+            sessionsFeatures.add(sessionAggregator.aggregate(chronologicalWindow));
+        }
+
+        if (sessionsFeatures.isEmpty()) return saved;
+
+        // 3. Call ML service
+        for (int i = 0; i < sessionKeys.size(); i++) {
+            logger.info("[ML-FLOW] Session: {} | Features: {}", sessionKeys.get(i), sessionsFeatures.get(i));
+        }
+        MlBatchRequestDto batchRequest = new MlBatchRequestDto(sessionsFeatures);
+        List<MlPredictionResultDto> results = mlClient.predictBatch(batchRequest);
+
+        if (results == null || results.isEmpty() || results.size() != sessionsFeatures.size()) {
+            logger.warn("[LogService] ML service returned {} results for {} sessions. Skipping updates.", 
+                        results == null ? 0 : results.size(), sessionsFeatures.size());
+            return saved;
+        }
+
+        // 4. Map results back to the logs using the sessionKeys index
+        for (int i = 0; i < sessionKeys.size(); i++) {
+            String sid = sessionKeys.get(i);
+            MlPredictionResultDto res = results.get(i);
+            
+            List<Log> logsToUpdate = currentBatchBySession.get(sid);
+            if (logsToUpdate != null) {
+                for (Log log : logsToUpdate) {
+                    log.setAnomalyScore(res.anomalyScore());
+                    log.setIsAnomaly("ANOMALY".equals(res.prediction()));
+                }
+            }
+        }
+
+        // Persist updated scores for the current batch
+        return logRepository.saveAll(saved);
     }
 
     public LogResponseDto markLogAsSuspicious(String logId) {
@@ -110,7 +208,6 @@ public class LogService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Log not found");
         }
         Log log = logOpt.get();
-        // Toggle or set to true. Assuming we just set it to true.
         log.setIsSuspicious(true);
         log = logRepository.save(log);
         return mapToDto(log);
@@ -118,7 +215,7 @@ public class LogService {
 
     // ── Live Tail Streaming ──────────────────────────────────────────────────
     public SseEmitter streamLogs() {
-        SseEmitter emitter = new SseEmitter(60000L); // 1-minute timeout (adjust as needed)
+        SseEmitter emitter = new SseEmitter(60000L); // 1-minute timeout
         emitters.add(emitter);
 
         emitter.onCompletion(() -> emitters.remove(emitter));

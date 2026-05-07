@@ -49,8 +49,8 @@ public class EmailService {
             helper.setText(html, true);
             mailSender.send(message);
             log.info("Email sent to {}: {}", to, subject);
-        } catch (MessagingException | java.io.UnsupportedEncodingException e) {
-            log.error("Failed to send email to {}: {}", to, e.getMessage());
+        } catch (Exception e) {
+            log.error("CRITICAL: Failed to send email to {}: {} (Subject: {})", to, e.getMessage(), subject, e);
         }
     }
 

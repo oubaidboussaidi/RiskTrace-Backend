@@ -23,4 +23,5 @@ public class UserResponse {
     private boolean isTwoFactorEnabled;
     private Instant createdAt;
     private Instant updatedAt;
+    private String profileImageUrl;
 }

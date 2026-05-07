@@ -89,6 +89,9 @@ public class User implements UserDetails {
 
     private String twoFactorSecret;
 
+    /** Base64-encoded profile avatar image (data URI), nullable */
+    private String profileImageUrl;
+
     @Override
     public boolean isEnabled() {
         return enabled;

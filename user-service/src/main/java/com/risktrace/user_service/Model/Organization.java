@@ -29,4 +29,7 @@ public class Organization {
 
     @Builder.Default
     private boolean enabled = true;
+
+    /** Base64-encoded organization logo image (data URI), nullable */
+    private String logoUrl;
 }

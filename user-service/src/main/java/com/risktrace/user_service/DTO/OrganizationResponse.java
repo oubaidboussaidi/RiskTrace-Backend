@@ -15,4 +15,6 @@ public class OrganizationResponse {
     private String createdBy;
     private boolean enabled;
     private long membersCount;
+    private String logoUrl;
+    private String currentUserRole;
 }

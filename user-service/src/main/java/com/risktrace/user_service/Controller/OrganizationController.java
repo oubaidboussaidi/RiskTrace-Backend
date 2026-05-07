@@ -23,6 +23,14 @@ public class OrganizationController {
         return ResponseEntity.status(HttpStatus.CREATED).body(organizationService.createOrganization(request, userId));
     }
 
+    @PutMapping("/{organizationId}")
+    public ResponseEntity<OrganizationResponse> updateOrganizationName(
+            @PathVariable String organizationId,
+            @RequestBody OrganizationRequest request,
+            @RequestHeader("X-User-Id") String userId) {
+        return ResponseEntity.ok(organizationService.updateOrganizationName(organizationId, request, userId));
+    }
+
     @GetMapping("/my")
     public ResponseEntity<List<OrganizationResponse>> getMyOrganizations(
             @RequestHeader("X-User-Id") String userId) {
@@ -89,5 +97,20 @@ public class OrganizationController {
             @RequestParam("newOwnerId") String newOwnerId) {
         organizationService.adminAssignOwner(organizationId, newOwnerId);
         return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/{organizationId}/logo")
+    public ResponseEntity<OrganizationResponse> updateLogo(
+            @PathVariable String organizationId,
+            @RequestBody UpdateLogoRequest request,
+            @RequestHeader("X-User-Id") String userId) {
+        return ResponseEntity.ok(organizationService.updateOrgLogo(organizationId, request.getImageDataUrl(), userId));
+    }
+
+    @DeleteMapping("/{organizationId}/logo")
+    public ResponseEntity<OrganizationResponse> removeLogo(
+            @PathVariable String organizationId,
+            @RequestHeader("X-User-Id") String userId) {
+        return ResponseEntity.ok(organizationService.removeOrgLogo(organizationId, userId));
     }
 }

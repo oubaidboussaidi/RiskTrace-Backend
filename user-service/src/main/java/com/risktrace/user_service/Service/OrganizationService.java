@@ -47,16 +47,27 @@ public class OrganizationService {
 
                 organizationMemberRepository.save(member);
 
-                return mapToResponse(savedOrg);
+                OrganizationResponse response = mapToResponse(savedOrg, currentUserId);
+                response.setCurrentUserRole("OWNER");
+                return response;
         }
 
         public List<OrganizationResponse> getUserOrganizations(String userId) {
                 List<OrganizationMember> memberships = organizationMemberRepository.findByUserId(userId);
                 return memberships.stream()
-                                .map(m -> organizationRepository.findById(m.getOrganizationId()))
+                                .map(m -> {
+                                        Optional<Organization> orgOpt = organizationRepository.findById(m.getOrganizationId());
+                                        if (orgOpt.isEmpty()) return Optional.<OrganizationResponse>empty();
+                                        
+                                        OrganizationResponse resp = mapToResponse(orgOpt.get(), userId);
+                                        // Ensure the role from the membership is explicitly set
+                                        if (m.getRole() != null) {
+                                                resp.setCurrentUserRole(m.getRole().name());
+                                        }
+                                        return Optional.of(resp);
+                                })
                                 .filter(Optional::isPresent)
                                 .map(Optional::get)
-                                .map(this::mapToResponse)
                                 .collect(Collectors.toList());
         }
 
@@ -190,7 +201,7 @@ public class OrganizationService {
 
         public List<OrganizationResponse> getAllOrganizations() {
                 return organizationRepository.findAll().stream()
-                                .map(this::mapToResponse)
+                                .map(org -> mapToResponse(org, null))
                                 .collect(Collectors.toList());
         }
 
@@ -199,10 +210,49 @@ public class OrganizationService {
                 Organization org = organizationRepository.findById(organizationId)
                                 .orElseThrow(() -> new RuntimeException("Organization not found"));
                 org.setEnabled(enabled);
-                return mapToResponse(organizationRepository.save(org));
+                return mapToResponse(organizationRepository.save(org), null);
+        }
+
+        @Transactional
+        public OrganizationResponse updateOrganizationName(String organizationId, OrganizationRequest request, String userId) {
+                verifyOwner(organizationId, userId);
+                Organization org = organizationRepository.findById(organizationId)
+                                .orElseThrow(() -> new RuntimeException("Organization not found"));
+                
+                // Optional: Check if name already exists globally or per user, but for now just update it
+                org.setName(request.getName());
+                return mapToResponse(organizationRepository.save(org), userId);
+        }
+
+        @Transactional
+        public OrganizationResponse updateOrgLogo(String organizationId, String imageDataUrl, String userId) {
+                verifyOwner(organizationId, userId);
+                Organization org = organizationRepository.findById(organizationId)
+                                .orElseThrow(() -> new RuntimeException("Organization not found"));
+                if (imageDataUrl == null || imageDataUrl.isBlank()) {
+                        throw new IllegalArgumentException("Image data is required");
+                }
+                if (!imageDataUrl.startsWith("data:")) {
+                        throw new IllegalArgumentException("Invalid image format");
+                }
+                if (imageDataUrl.length() > 2_750_000) {
+                        throw new IllegalArgumentException("Image size exceeds the 2MB limit");
+                }
+                org.setLogoUrl(imageDataUrl);
+                return mapToResponse(organizationRepository.save(org), userId);
+        }
+
+        @Transactional
+        public OrganizationResponse removeOrgLogo(String organizationId, String userId) {
+                verifyOwner(organizationId, userId);
+                Organization org = organizationRepository.findById(organizationId)
+                                .orElseThrow(() -> new RuntimeException("Organization not found"));
+                org.setLogoUrl(null);
+                return mapToResponse(organizationRepository.save(org), userId);
         }
 
         private void verifyOwner(String organizationId, String userId) {
+                // Check organization membership and role strictly
                 OrganizationMember member = organizationMemberRepository
                                 .findByUserIdAndOrganizationId(userId, organizationId)
                                 .orElseThrow(() -> new RuntimeException("You are not a member of this organization"));
@@ -212,15 +262,25 @@ public class OrganizationService {
                 }
         }
 
-        private OrganizationResponse mapToResponse(Organization org) {
+        private OrganizationResponse mapToResponse(Organization org, String currentUserId) {
                 long membersCount = organizationMemberRepository.findByOrganizationId(org.getId()).size();
+                
+                String role = null;
+                if (currentUserId != null) {
+                    role = organizationMemberRepository.findByUserIdAndOrganizationId(currentUserId, org.getId())
+                        .map(m -> m.getRole().name())
+                        .orElse(null);
+                }
+
                 return new OrganizationResponse(
                                 org.getId(),
                                 org.getName(),
                                 org.getCreatedAt(),
                                 org.getCreatedBy(),
                                 org.isEnabled(),
-                                membersCount);
+                                membersCount,
+                                org.getLogoUrl(),
+                                role);
         }
 
         private OrganizationMemberResponse mapToMemberResponse(OrganizationMember member) {

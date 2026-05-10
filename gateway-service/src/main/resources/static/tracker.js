@@ -15,7 +15,7 @@
 
     const API_KEY = SCRIPT?.getAttribute("data-api-key");
     const DEBUG = SCRIPT?.getAttribute("data-debug") === "true";
-    const API_URL = SCRIPT?.getAttribute("data-endpoint") || "http://localhost:8080/api/logs/collect";
+    const API_URL = SCRIPT?.getAttribute("data-endpoint") || "http://localhost:8084/api/logs/collect";
 
     if (!API_KEY) {
         console.error("[Tracker] Clé API manquante.");

@@ -90,4 +90,19 @@ public class MlClient {
             return Collections.emptyList();
         }
     }
+
+    public boolean checkHealth() {
+        try {
+            webClient.get()
+                    .uri("/health")
+                    .retrieve()
+                    .toBodilessEntity()
+                    .timeout(Duration.ofSeconds(5))
+                    .block();
+            return true;
+        } catch (Exception ex) {
+            logger.warn("[MlClient] ML Service health check failed: {}", ex.getMessage());
+            return false;
+        }
+    }
 }

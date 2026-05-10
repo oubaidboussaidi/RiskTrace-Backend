@@ -19,13 +19,16 @@ import org.springframework.web.reactive.function.client.WebClient;
 @Configuration
 public class MlClientConfig {
 
-    @Value("${ml.service.url:http://localhost:8000}")
-    private String mlServiceUrl;
+    @Bean(name = "mlWebClientBuilder")
+    @org.springframework.cloud.client.loadbalancer.LoadBalanced
+    public WebClient.Builder mlWebClientBuilder() {
+        return WebClient.builder();
+    }
 
     @Bean(name = "mlWebClient")
-    public WebClient mlWebClient() {
-        return WebClient.builder()
-                .baseUrl(mlServiceUrl)
+    public WebClient mlWebClient(WebClient.Builder mlWebClientBuilder) {
+        return mlWebClientBuilder
+                .baseUrl("http://ML-SERVICE")
                 .defaultHeader("Content-Type", "application/json")
                 .build();
     }

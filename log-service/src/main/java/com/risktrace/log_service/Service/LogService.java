@@ -43,6 +43,9 @@ public class LogService {
     @Autowired
     private MlClient mlClient;
 
+    @Autowired
+    private AlertClient alertClient;
+
     // For Live Tail
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
@@ -193,7 +196,13 @@ public class LogService {
             if (logsToUpdate != null) {
                 for (Log log : logsToUpdate) {
                     log.setAnomalyScore(res.anomalyScore());
-                    log.setIsAnomaly("ANOMALY".equals(res.prediction()));
+                    boolean isAnom = "ANOMALY".equals(res.prediction());
+                    log.setIsAnomaly(isAnom);
+                    
+                    if (isAnom) {
+                        String severity = res.anomalyScore() > 0.8 ? "CRITICAL" : "HIGH";
+                        alertClient.sendAlert(log, "ANOMALY_DETECTED", severity, "Machine Learning model detected anomalous behaviour with score: " + res.anomalyScore());
+                    }
                 }
             }
         }
@@ -210,6 +219,9 @@ public class LogService {
         Log log = logOpt.get();
         log.setIsSuspicious(true);
         log = logRepository.save(log);
+        
+        alertClient.sendAlert(log, "SUSPICIOUS_ACTIVITY", "HIGH", "Log manually marked as suspicious by an analyst.");
+        
         return mapToDto(log);
     }
 
@@ -259,5 +271,9 @@ public class LogService {
         dto.setIsAnomaly(log.getIsAnomaly());
         dto.setIsSuspicious(log.getIsSuspicious());
         return dto;
+    }
+
+    public boolean isMlOnline() {
+        return mlClient.checkHealth();
     }
 }

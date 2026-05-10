@@ -43,6 +43,11 @@ public class LogController {
         return ResponseEntity.ok(logService.markLogAsSuspicious(logId));
     }
 
+    @GetMapping("/ml-status")
+    public ResponseEntity<Map<String, Boolean>> getMlStatus() {
+        return ResponseEntity.ok(Map.of("online", logService.isMlOnline()));
+    }
+
     // ── Live Tail Streaming ──────────────────────────────────────────────────
 
     @GetMapping("/stream")

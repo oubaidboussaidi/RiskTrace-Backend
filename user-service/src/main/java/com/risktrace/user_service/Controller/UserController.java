@@ -101,4 +101,17 @@ public class UserController {
         userService.disable2fa(authentication.getName(), request.get("currentPassword"));
         return ResponseEntity.ok(Map.of("message", "Two-factor authentication disabled successfully"));
     }
+
+    // Avatar endpoints
+    @PutMapping("/profile/avatar")
+    public ResponseEntity<UserResponse> updateAvatar(
+            Authentication authentication,
+            @RequestBody UpdateAvatarRequest request) {
+        return ResponseEntity.ok(userService.updateAvatar(authentication.getName(), request));
+    }
+
+    @DeleteMapping("/profile/avatar")
+    public ResponseEntity<UserResponse> removeAvatar(Authentication authentication) {
+        return ResponseEntity.ok(userService.removeAvatar(authentication.getName()));
+    }
 }

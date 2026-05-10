@@ -497,6 +497,41 @@ public class UserService {
     }
 
     // =========================================================================
+    // AVATAR MANAGEMENT
+    // =========================================================================
+
+    @Transactional
+    public UserResponse updateAvatar(String email, UpdateAvatarRequest request) {
+        var user = repository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        if (request.getImageDataUrl() == null || request.getImageDataUrl().isBlank()) {
+            throw new IllegalArgumentException("Image data is required");
+        }
+        // Basic validation: must be a data URI
+        if (!request.getImageDataUrl().startsWith("data:")) {
+            throw new IllegalArgumentException("Invalid image format");
+        }
+        // Limit size: ~2MB base64 ≈ 2_750_000 chars
+        if (request.getImageDataUrl().length() > 2_750_000) {
+            throw new IllegalArgumentException("Image size exceeds the 2MB limit");
+        }
+
+        user.setProfileImageUrl(request.getImageDataUrl());
+        user.setUpdatedAt(Instant.now());
+        return mapToUserResponse(repository.save(user));
+    }
+
+    @Transactional
+    public UserResponse removeAvatar(String email) {
+        var user = repository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        user.setProfileImageUrl(null);
+        user.setUpdatedAt(Instant.now());
+        return mapToUserResponse(repository.save(user));
+    }
+
+    // =========================================================================
     // PRIVATE HELPERS
     // =========================================================================
 
@@ -534,6 +569,7 @@ public class UserService {
                 .isTwoFactorEnabled(user.isTwoFactorEnabled())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
+                .profileImageUrl(user.getProfileImageUrl())
                 .build();
     }
 

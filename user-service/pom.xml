@@ -88,6 +88,12 @@
 			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
 
+		<!-- Thymeleaf for email HTML templates -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-thymeleaf</artifactId>
+		</dependency>
+
 		<!-- TOTP 2FA -->
 		<dependency>
 			<groupId>dev.samstevens.totp</groupId>

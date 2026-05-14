@@ -18,6 +18,8 @@ public class UserResponse {
     private String email;
     private Role role;
     private boolean enabled;
+    private boolean emailVerified;
+    private boolean accountNonLocked;
 
     @JsonProperty("isTwoFactorEnabled")
     private boolean isTwoFactorEnabled;

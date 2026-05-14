@@ -41,6 +41,14 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(body, HttpStatus.FORBIDDEN);
     }
 
+    @ExceptionHandler(AccountBannedException.class)
+    public ResponseEntity<Map<String, String>> handleAccountBanned(AccountBannedException ex) {
+        Map<String, String> body = new HashMap<>();
+        body.put("error", ex.getMessage());
+        body.put("code", "ACCOUNT_BANNED");
+        return new ResponseEntity<>(body, HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler(InvalidTokenException.class)
     public ResponseEntity<Map<String, String>> handleInvalidToken(InvalidTokenException ex) {
         Map<String, String> body = new HashMap<>();

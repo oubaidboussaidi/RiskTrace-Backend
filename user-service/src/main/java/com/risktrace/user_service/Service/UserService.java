@@ -5,6 +5,7 @@ import com.risktrace.user_service.Enums.Role;
 import com.risktrace.user_service.Enums.OrganizationRole;
 import com.risktrace.user_service.Exception.AccountNotVerifiedException;
 import com.risktrace.user_service.Exception.AccountLockedException;
+import com.risktrace.user_service.Exception.AccountBannedException;
 import com.risktrace.user_service.Exception.EmailUnverifiedPendingException;
 import com.risktrace.user_service.Exception.InvalidTokenException;
 import com.risktrace.user_service.Model.BlacklistedToken;
@@ -82,7 +83,7 @@ public class UserService {
     public UserResponse register(RegisterRequest request) {
         var existingUser = repository.findByEmail(request.getEmail());
         if (existingUser.isPresent()) {
-            if (!existingUser.get().isEnabled()) {
+            if (!existingUser.get().isEmailVerified()) {
                 // Account exists but not verified — inform them a verification email was
                 // already sent
                 throw new EmailUnverifiedPendingException(
@@ -96,7 +97,8 @@ public class UserService {
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.USER)
-                .enabled(false) // Must verify email first
+                .enabled(true)
+                .emailVerified(false) // Must verify email first
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
                 .build();
@@ -126,11 +128,15 @@ public class UserService {
             }
         }
 
+        if (!user.isEmailVerified()) {
+            throw new AccountNotVerifiedException("ACCOUNT_NOT_VERIFIED");
+        }
+
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
         } catch (DisabledException e) {
-            throw new AccountNotVerifiedException("ACCOUNT_NOT_VERIFIED");
+            throw new AccountBannedException("ACCOUNT_BANNED");
         } catch (org.springframework.security.authentication.LockedException e) {
             throw new AccountLockedException("ACCOUNT_LOCKED");
         } catch (org.springframework.security.authentication.BadCredentialsException e) {
@@ -302,7 +308,7 @@ public class UserService {
         var user = repository.findByEmail(vt.getUserEmail())
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        user.setEnabled(true);
+        user.setEmailVerified(true);
         user.setUpdatedAt(Instant.now());
         repository.save(user);
 
@@ -315,7 +321,7 @@ public class UserService {
         var user = repository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        if (user.isEnabled()) {
+        if (user.isEmailVerified()) {
             throw new RuntimeException("Account is already verified");
         }
 
@@ -397,6 +403,12 @@ public class UserService {
         }
         if (request.getEnabled() != null) {
             user.setEnabled(request.getEnabled());
+            if (request.getEnabled()) {
+                // If admin enables the user, also clear any brute-force lock
+                user.setFailedLoginAttempts(0);
+                user.setAccountNonLocked(true);
+                user.setLockTime(null);
+            }
         }
         user.setUpdatedAt(Instant.now());
         User saved = repository.save(user);
@@ -566,6 +578,8 @@ public class UserService {
                 .email(user.getEmail())
                 .role(user.getRole() != null ? user.getRole() : Role.USER)
                 .enabled(user.isEnabled())
+                .emailVerified(user.isEmailVerified())
+                .accountNonLocked(user.isAccountNonLocked())
                 .isTwoFactorEnabled(user.isTwoFactorEnabled())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())

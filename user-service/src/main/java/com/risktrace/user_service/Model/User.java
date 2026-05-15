@@ -42,6 +42,9 @@ public class User implements UserDetails {
     @Builder.Default
     private boolean enabled = true;
 
+    @Builder.Default
+    private boolean emailVerified = false;
+
     @CreatedDate
     private Instant createdAt;
 

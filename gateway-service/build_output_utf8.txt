@@ -1,0 +1,42 @@
+﻿[INFO] Scanning for projects...
+[INFO] 
+[INFO] -------------------< com.risktrace:gateway-service >--------------------
+[INFO] Building gateway-service 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:3.2.4:run (default-cli) > test-compile @ gateway-service >>>
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ gateway-service ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.11.0:compile (default-compile) @ gateway-service ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ gateway-service ---
+[INFO] skip non existing resourceDirectory C:\Users\hp\Desktop\PFE\app\RiskTrace\RiskTraceBackend\gateway-service\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.11.0:testCompile (default-testCompile) @ gateway-service ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] <<< spring-boot:3.2.4:run (default-cli) < test-compile @ gateway-service <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:3.2.4:run (default-cli) @ gateway-service ---
+[INFO] Attaching agents: []
+Error: LinkageError occurred while loading main class com.risktrace.gateway_service.GatewayServiceApplication
+	java.lang.UnsupportedClassVersionError: com/risktrace/gateway_service/GatewayServiceApplication has been compiled by a more recent version of the Java Runtime (class file version 65.0), this version of the Java Runtime only recognizes class file versions up to 61.0
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  1.947 s
+[INFO] Finished at: 2026-04-02T02:38:27+01:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.springframework.boot:spring-boot-maven-plugin:3.2.4:run (default-cli) on project gateway-service: Process terminated with exit code: 1 -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException

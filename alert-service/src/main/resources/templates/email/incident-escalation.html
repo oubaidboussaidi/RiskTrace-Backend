@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Threat Escalation Notice — RiskTrace</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background-color: #f6f8fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #24292f; }
+        .wrapper { max-width: 640px; margin: 40px auto; background: #ffffff; border: 1px solid #d0d7de; border-radius: 6px; overflow: hidden; }
+
+        /* Header */
+        .header { background-color: #ffffff; padding: 28px 40px; border-bottom: 1px solid #E2E8F0; }
+        .header-top { display: flex; align-items: center; margin-bottom: 18px; }
+        .header-logo-text { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; margin: 0; padding: 0; display: block; }
+        .logo-risk { color: #0F172A; }
+        .logo-trace { color: #2563EB; }
+        .header-sep { width: 1px; height: 40px; background: #E2E8F0; margin: 0 14px; display: inline-block; vertical-align: middle; }
+        .header-label { color: #64748B; font-size: 11px; font-weight: 600; letter-spacing: 1.8px; text-transform: uppercase; vertical-align: middle; }
+        .header-subtitle { font-size: 18px; font-weight: 700; color: #0F172A; margin-bottom: 10px; }
+        .severity-pill { display: inline-block; padding: 4px 14px; color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; border-radius: 4px; }
+
+        /* Body */
+        .body { padding: 36px 40px; }
+        .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.4px; color: #57606a; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #d0d7de; }
+        .action-banner { background: #fff8c5; border: 1px solid #e3c000; border-left: 3px solid #c28f00; border-radius: 4px; padding: 14px 18px; margin-bottom: 28px; font-size: 13px; color: #5c4300; line-height: 1.65; }
+
+        /* Analyst message block */
+        .message-block { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 4px; padding: 18px 20px; margin-bottom: 28px; }
+        .message-meta { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #57606a; margin-bottom: 10px; }
+        .message-text { font-size: 14px; color: #1f2328; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+
+        /* Metadata table */
+        .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 28px; }
+        .meta-table tr { border-bottom: 1px solid #f0f2f4; }
+        .meta-table tr:last-child { border-bottom: none; }
+        .meta-table td { padding: 11px 0; font-size: 14px; vertical-align: top; }
+        .meta-table td.label { color: #57606a; font-weight: 600; width: 160px; padding-right: 16px; }
+        .meta-table td.value { color: #24292f; font-weight: 500; }
+        .mono { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 12px; background: #f6f8fa; padding: 3px 7px; border-radius: 4px; border: 1px solid #d0d7de; color: #0969da; }
+        .empty-val { color: #6e7681; font-style: italic; }
+
+        /* Footer */
+        .footer { background: #f6f8fa; padding: 24px 40px; border-top: 1px solid #d0d7de; text-align: center; }
+        .footer-text { font-size: 11px; color: #57606a; line-height: 1.8; }
+        .footer-text strong { color: #24292f; }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+
+    <!-- Header: background + border color driven by severity -->
+    <div class="header"
+         th:style="'border-top: 4px solid ' + ${severityColor} + ';'">
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 16px;">
+            <tr>
+                <td style="vertical-align: middle;">
+                    <div class="header-logo-text"><span class="logo-risk">Risk</span><span class="logo-trace">Trace</span></div>
+                </td>
+                <td width="1" style="padding: 0 14px; vertical-align: middle;">
+                    <div style="width:1px; height:40px; background:#E2E8F0;"></div>
+                </td>
+                <td style="vertical-align: middle;">
+                    <span class="header-label">Security Operations Center</span>
+                </td>
+            </tr>
+        </table>
+
+        <div class="header-subtitle">Threat Escalation Notice</div>
+        <span class="severity-pill" th:style="'background-color: ' + ${severityColor} + ';'" th:text="${severity}">UNKNOWN</span>
+    </div>
+
+    <!-- Body -->
+    <div class="body">
+
+        <!-- Action banner -->
+        <div class="action-banner">
+            A security analyst from the RiskTrace SOC has escalated an ML-detected threat to you.
+            Please review the details below and take appropriate action to secure your application.
+        </div>
+
+        <!-- Analyst message -->
+        <div class="section-title">Message from RiskTrace SOC</div>
+        <div class="message-block"
+             th:style="'border-left: 3px solid ' + ${severityColor} + ';'">
+            <div class="message-meta">
+                Escalated by: <span th:text="${analystName}">Unknown Analyst</span>
+            </div>
+            <div class="message-text" th:text="${customMessage}">No message provided.</div>
+        </div>
+
+        <!-- Incident details -->
+        <div class="section-title">Incident Details</div>
+        <table class="meta-table">
+            <tr>
+                <td class="label">Alert ID</td>
+                <td class="value"><span class="mono" th:text="${alertId}">N/A</span></td>
+            </tr>
+            <tr>
+                <td class="label">Type</td>
+                <td class="value" th:text="${alertType}">N/A</td>
+            </tr>
+            <tr>
+                <td class="label">Severity</td>
+                <td class="value" th:style="'color:' + ${severityColor} + '; font-weight:700;'" th:text="${severity}">N/A</td>
+            </tr>
+            <tr>
+                <td class="label">ML Confidence</td>
+                <td class="value" th:text="${anomalyScore}">N/A</td>
+            </tr>
+            <tr>
+                <td class="label">Timestamp (UTC)</td>
+                <td class="value" th:text="${timestamp}">N/A</td>
+            </tr>
+        </table>
+
+        <!-- Network context -->
+        <div class="section-title">Network Context</div>
+        <table class="meta-table">
+            <tr>
+                <td class="label">Source IP</td>
+                <td class="value">
+                    <span class="mono" th:if="${sourceIp != null}" th:text="${sourceIp}"></span>
+                    <span class="empty-val" th:unless="${sourceIp != null}">Not specified</span>
+                </td>
+            </tr>
+            <tr>
+                <td class="label">Target Path</td>
+                <td class="value">
+                    <span class="mono" th:if="${targetPath != null}" th:text="${targetPath}"></span>
+                    <span class="empty-val" th:unless="${targetPath != null}">Not specified</span>
+                </td>
+            </tr>
+            <tr>
+                <td class="label">Session ID</td>
+                <td class="value">
+                    <span class="mono" th:if="${sessionId != null}" th:text="${sessionId}"></span>
+                    <span class="empty-val" th:unless="${sessionId != null}">Not specified</span>
+                </td>
+            </tr>
+            <tr>
+                <td class="label">Organization</td>
+                <td class="value"><span class="mono" th:text="${organizationId}">N/A</span></td>
+            </tr>
+            <tr>
+                <td class="label">Site</td>
+                <td class="value">
+                    <span class="mono" th:if="${siteId != null}" th:text="${siteId}"></span>
+                    <span class="empty-val" th:unless="${siteId != null}">Not specified</span>
+                </td>
+            </tr>
+        </table>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p class="footer-text">
+            <strong>RiskTrace Platform</strong><br />
+            This is an automated escalation notice generated on <span th:text="${timestamp}">N/A</span>.<br />
+            Do not reply to this message. Please check your application logs for more details.
+        </p>
+    </div>
+
+</div>
+</body>
+</html>

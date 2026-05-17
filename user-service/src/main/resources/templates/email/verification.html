@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Email Verification Required — RiskTrace</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background-color: #F4F6F9; font-family: 'Segoe UI', Arial, Helvetica, sans-serif; color: #1A1A2E; }
+        .wrapper { max-width: 640px; margin: 32px auto; background: #ffffff; border: 1px solid #DDE3EC; border-radius: 6px; overflow: hidden; }
+        .top-bar { background-color: #0F172A; height: 4px; }
+        .header { background-color: #ffffff; padding: 24px 40px; border-bottom: 1px solid #E2E8F0; }
+        .header-inner { display: inline-flex; align-items: center; }
+        .header-logo-text { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; margin: 0; padding: 0; display: block; }
+        .logo-risk { color: #0F172A; }
+        .logo-trace { color: #2563EB; }
+        .header-sep { width: 1px; height: 40px; background: #E2E8F0; margin: 0 16px; display: inline-block; vertical-align: middle; }
+        .header-label { color: #64748B; font-size: 12px; font-weight: 600; letter-spacing: 1.8px; text-transform: uppercase; vertical-align: middle; }
+        .content { padding: 40px; }
+        .section-tag { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #4B5563; border: 1px solid #D1D5DB; border-radius: 3px; padding: 3px 8px; margin-bottom: 20px; }
+        .heading { font-size: 20px; font-weight: 700; color: #0F172A; margin-bottom: 14px; line-height: 1.3; }
+        .body-text { font-size: 14px; color: #4B5563; line-height: 1.75; margin-bottom: 14px; }
+        .info-box { background: #F0F7FF; border: 1px solid #BFDBFE; border-left: 3px solid #2563EB; border-radius: 4px; padding: 14px 18px; margin: 22px 0; font-size: 13px; color: #1E40AF; line-height: 1.6; }
+        .btn-row { text-align: center; margin: 28px 0; }
+        .btn { display: inline-block; background-color: #1D4ED8; color: #ffffff !important; text-decoration: none; padding: 13px 36px; border-radius: 4px; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; }
+        .divider { border: none; border-top: 1px solid #E5E7EB; margin: 28px 0; }
+        .fallback-label { font-size: 12px; color: #6B7280; margin-bottom: 6px; }
+        .fallback-url { font-size: 12px; color: #2563EB; word-break: break-all; text-decoration: none; }
+        .security-note { font-size: 12px; color: #6B7280; line-height: 1.6; }
+        .footer { background-color: #F8FAFC; border-top: 1px solid #E5E7EB; padding: 20px 40px; }
+        .footer-text { font-size: 11px; color: #9CA3AF; line-height: 1.7; text-align: center; }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <div class="top-bar"></div>
+
+    <table class="header" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+            <td style="vertical-align: middle;">
+                <div class="header-logo-text"><span class="logo-risk">Risk</span><span class="logo-trace">Trace</span></div>
+            </td>
+            <td width="1" style="padding: 0 16px; vertical-align: middle;">
+                <div style="width:1px; height:40px; background:#E2E8F0;"></div>
+            </td>
+            <td style="vertical-align: middle;">
+                <span class="header-label">Security Operations Center</span>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Body -->
+    <div class="content">
+        <span class="section-tag">Account Activation</span>
+        <div class="heading">Email Verification Required</div>
+
+        <p class="body-text">Dear <strong th:text="${name}">User</strong>,</p>
+        <p class="body-text">
+            Your RiskTrace account has been created. To complete the registration process and
+            gain access to the platform, please verify your email address by clicking the button below.
+        </p>
+
+        <div class="info-box">
+            <strong>Link expiry:</strong> This verification link will remain valid for
+            <strong>24 hours</strong> from the time this message was sent.
+            After expiration, a new verification email must be requested from the login page.
+        </div>
+
+        <div class="btn-row">
+            <a th:href="${link}" class="btn">Verify Email Address</a>
+        </div>
+
+        <hr class="divider" />
+
+        <p class="fallback-label">If the button above does not function, copy and paste the following URL into your browser:</p>
+        <a th:href="${link}" th:text="${link}" class="fallback-url">#</a>
+
+        <hr class="divider" />
+
+        <p class="security-note">
+            If you did not initiate a registration request on the RiskTrace platform, no action is required.
+            Your email address will not be associated with any account.
+        </p>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p class="footer-text">
+            This message was generated automatically by the RiskTrace platform. Please do not reply to this email.<br />
+            &copy; 2025 RiskTrace &mdash; All rights reserved.
+        </p>
+    </div>
+</div>
+</body>
+</html>

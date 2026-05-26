@@ -1,0 +1,31 @@
+# ── Java / Maven ──
+target/
+!.mvn/wrapper/maven-wrapper.jar
+*.jar
+*.war
+*.class
+
+# ── IDE ──
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# ── Logs ──
+*.log
+*.txt
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+
+# ── Git ──
+.git/
+.gitignore
+.gitattributes
+
+# ── Docker ──
+Dockerfile
+docker-compose*.yml

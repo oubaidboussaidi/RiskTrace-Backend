@@ -29,6 +29,9 @@ public class SiteMongoConfig {
     @Value("${app.sitedb.uri:mongodb://localhost:27017/sitedb}")
     private String siteDbUri;
 
+    @Value("${app.sitedb.name:risktrace_site}")
+    private String siteDbName;
+
     @Bean(name = "siteMongoClient")
     public MongoClient siteMongoClient() {
         System.out.println("[LogService] SiteRef database URI: " + siteDbUri);
@@ -37,20 +40,11 @@ public class SiteMongoConfig {
 
     @Bean(name = "siteMongoDatabaseFactory")
     public MongoDatabaseFactory siteMongoDatabaseFactory() {
-        return new SimpleMongoClientDatabaseFactory(siteMongoClient(), extractDbName(siteDbUri));
+        return new SimpleMongoClientDatabaseFactory(siteMongoClient(), siteDbName);
     }
 
     @Bean(name = "siteMongoTemplate")
     public MongoTemplate siteMongoTemplate() {
         return new MongoTemplate(siteMongoDatabaseFactory());
-    }
-
-    private String extractDbName(String uri) {
-        // Extract DB name from URI like mongodb://host:port/dbname
-        String path = uri.substring(uri.lastIndexOf('/') + 1);
-        // Handle query params
-        if (path.contains("?"))
-            path = path.substring(0, path.indexOf('?'));
-        return path.isEmpty() ? "sitedb" : path;
     }
 }

@@ -20,6 +20,9 @@ public class PrimaryMongoConfig {
     @Value("${spring.data.mongodb.uri:mongodb://localhost:27017/logdb}")
     private String primaryDbUri;
 
+    @Value("${app.logdb.name:risktrace_log}")
+    private String primaryDbName;
+
     @Bean(name = "primaryMongoClient")
     @Primary
     public MongoClient primaryMongoClient() {
@@ -29,19 +32,12 @@ public class PrimaryMongoConfig {
     @Bean(name = "primaryMongoDatabaseFactory")
     @Primary
     public MongoDatabaseFactory primaryMongoDatabaseFactory() {
-        return new SimpleMongoClientDatabaseFactory(primaryMongoClient(), extractDbName(primaryDbUri));
+        return new SimpleMongoClientDatabaseFactory(primaryMongoClient(), primaryDbName);
     }
 
     @Bean(name = "mongoTemplate")
     @Primary
     public MongoTemplate mongoTemplate() {
         return new MongoTemplate(primaryMongoDatabaseFactory());
-    }
-
-    private String extractDbName(String uri) {
-        String path = uri.substring(uri.lastIndexOf('/') + 1);
-        if (path.contains("?"))
-            path = path.substring(0, path.indexOf('?'));
-        return path.isEmpty() ? "logdb" : path;
     }
 }

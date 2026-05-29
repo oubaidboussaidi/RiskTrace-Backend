@@ -1,0 +1,86 @@
+# ══════════════════════════════════════════════════════════════
+# RiskTrace Backend — Render Blueprint 
+# (À placer à la racine de votre dépôt Backend sur GitHub)
+# ══════════════════════════════════════════════════════════════
+
+services:
+  # ── 1. Service Discovery (Eureka) ─────────────────────────
+  - type: web
+    name: risktrace-discovery
+    env: docker
+    rootDir: discovery-service
+    plan: free
+    healthCheckPath: /actuator/health
+
+  # ── 2. API Gateway ─────────────────────────────────────────
+  - type: web
+    name: risktrace-gateway
+    env: docker
+    rootDir: gateway-service
+    plan: free
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        value: https://risktrace-discovery.onrender.com/eureka/
+
+  # ── 3. Log Service ─────────────────────────────────────────
+  - type: web
+    name: risktrace-log
+    env: docker
+    rootDir: log-service
+    plan: free
+    envVars:
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        value: https://risktrace-discovery.onrender.com/eureka/
+      - key: MONGODB_URI
+        sync: false
+
+  # ── 4. User Service ────────────────────────────────────────
+  - type: web
+    name: risktrace-user
+    env: docker
+    rootDir: user-service
+    plan: free
+    envVars:
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        value: https://risktrace-discovery.onrender.com/eureka/
+      - key: FRONTEND_URL
+        sync: false # L'URL Vercel que vous aurez plus tard
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: EMAIL_USERNAME
+        sync: false
+      - key: EMAIL_PASSWORD
+        sync: false
+
+  # ── 5. Site Service ────────────────────────────────────────
+  - type: web
+    name: risktrace-site
+    env: docker
+    rootDir: site-service
+    plan: free
+    envVars:
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        value: https://risktrace-discovery.onrender.com/eureka/
+      - key: MONGODB_URI
+        sync: false
+
+  # ── 6. Alert Service ───────────────────────────────────────
+  - type: web
+    name: risktrace-alert
+    env: docker
+    rootDir: alert-service
+    plan: free
+    envVars:
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        value: https://risktrace-discovery.onrender.com/eureka/
+      - key: MONGODB_URI
+        sync: false
+      - key: EMAIL_USERNAME
+        sync: false
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: SOC_EMAIL
+        sync: false

@@ -22,6 +22,14 @@ services:
     envVars:
       - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
         value: https://risktrace-discovery.onrender.com/eureka/
+      - key: USER_SERVICE_URL
+        value: https://risktrace-user.onrender.com
+      - key: SITE_SERVICE_URL
+        value: https://risktrace-site.onrender.com
+      - key: LOG_SERVICE_URL
+        value: https://risktrace-log.onrender.com
+      - key: ALERT_SERVICE_URL
+        value: https://risktrace-alert.onrender.com
 
   # ── 3. Log Service ─────────────────────────────────────────
   - type: web

@@ -6,8 +6,16 @@ import com.risktrace.user_service.DTO.UserResponse;
 import com.risktrace.user_service.DTO.AuthResponse;
 import com.risktrace.user_service.Enums.Role;
 import com.risktrace.user_service.Model.User;
+import com.risktrace.user_service.Model.RefreshToken;
+import com.risktrace.user_service.Model.VerificationToken;
+import com.risktrace.user_service.Repository.BlacklistedTokenRepository;
+import com.risktrace.user_service.Repository.PasswordResetTokenRepository;
+import com.risktrace.user_service.Repository.RefreshTokenRepository;
+import com.risktrace.user_service.Repository.OrganizationMemberRepository;
 import com.risktrace.user_service.Repository.UserRepository;
+import com.risktrace.user_service.Repository.VerificationTokenRepository;
 import com.risktrace.user_service.Security.JwtUtils;
+import com.risktrace.user_service.Service.EmailService;
 import com.risktrace.user_service.Service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +25,9 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import dev.samstevens.totp.code.CodeVerifier;
+import dev.samstevens.totp.qr.QrGenerator;
+import dev.samstevens.totp.secret.SecretGenerator;
 
 import java.util.Optional;
 
@@ -37,6 +48,33 @@ class UserServiceTest {
 
     @Mock
     private AuthenticationManager authenticationManager;
+
+    @Mock
+    private VerificationTokenRepository verificationTokenRepo;
+
+    @Mock
+    private PasswordResetTokenRepository passwordResetTokenRepo;
+
+    @Mock
+    private EmailService emailService;
+
+    @Mock
+    private BlacklistedTokenRepository blacklistedTokenRepository;
+
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Mock
+    private OrganizationMemberRepository organizationMemberRepository;
+
+    @Mock
+    private SecretGenerator secretGenerator;
+
+    @Mock
+    private QrGenerator qrGenerator;
+
+    @Mock
+    private CodeVerifier codeVerifier;
 
     @InjectMocks
     private UserService userService;
@@ -59,6 +97,8 @@ class UserServiceTest {
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty());
         when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedPassword");
         when(userRepository.save(any(User.class))).thenReturn(user);
+        when(verificationTokenRepo.save(any(VerificationToken.class))).thenReturn(null);
+        doNothing().when(emailService).sendVerificationEmail(anyString(), anyString(), anyString());
 
         UserResponse response = userService.register(request);
 
@@ -66,12 +106,17 @@ class UserServiceTest {
         assertEquals("test@example.com", response.getEmail());
         assertEquals(Role.USER, response.getRole());
         verify(userRepository, times(1)).save(any(User.class));
+        verify(verificationTokenRepo, times(1)).save(any(VerificationToken.class));
     }
 
     @Test
     void testRegister_EmailAlreadyExists() {
         RegisterRequest request = new RegisterRequest("Test User", "test@example.com", "password");
-        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(new User()));
+        User existingUser = User.builder()
+                .email("test@example.com")
+                .enabled(true)
+                .build();
+        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(existingUser));
 
         assertThrows(RuntimeException.class, () -> userService.register(request));
         verify(userRepository, never()).save(any(User.class));
@@ -85,17 +130,21 @@ class UserServiceTest {
                 .fullName("Test User")
                 .email("test@example.com")
                 .role(Role.USER)
+                .failedLoginAttempts(0)
+                .accountNonLocked(true)
                 .build();
 
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(null);
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(user));
         when(jwtUtils.generateToken(any(User.class))).thenReturn("jwtToken");
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenReturn(null);
 
         AuthResponse response = userService.authenticate(request);
 
         assertNotNull(response);
         assertEquals("jwtToken", response.getToken());
         assertEquals("test@example.com", response.getEmail());
+        verify(refreshTokenRepository, times(1)).save(any(RefreshToken.class));
     }
 
     @Test

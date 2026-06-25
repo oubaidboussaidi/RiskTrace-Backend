@@ -32,7 +32,7 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
 
             if (validator.isSecured.test(exchange.getRequest())) {
 
-                // 1️⃣ Check Authorization header exists or query params (for SSE EventSource)
+                //  Check Authorization header exists or query params (for SSE EventSource)
                 String authHeader = exchange.getRequest()
                         .getHeaders()
                         .getFirst(HttpHeaders.AUTHORIZATION);
